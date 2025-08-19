@@ -1,0 +1,26 @@
+<?xml version="1.0" encoding="us-ascii"?>
+<database xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" name="barbora" xsi:noNamespaceSchemaLocation="../database.xsd">
+	<AlchemyRecipes version="1">
+		<AlchemyRecipe RecipeId="67" BaseMaterial="Oil" UIUsage="recipe_potion_antinighthawk_usage" UIName="recipe_potion_antinighthawk_name" UIIcon="potion_antinighthawk" BaseQualityRewardXP="18">
+			<Ingredients>
+				<AlchemyIngredient IngredientItemId="7259b9bc-dfae-487e-a8bb-c1f500894e0c" Quantity="1" />
+				<AlchemyIngredient IngredientItemId="b9de1d84-a0c1-4b81-9f60-8d7fbb3cb9d4" Quantity="1" />
+			</Ingredients>
+			<Products>
+				<AlchemyProduct Quality="1" ProductItemId="73b58cd9-86f4-4b45-87ee-2c9d22f47d7d" MaxYield="2" />
+				<AlchemyProduct Quality="2" ProductItemId="73b58cd9-86f4-4b45-87ee-2c9d22f47d7d" MaxYield="2" />
+				<AlchemyProduct Quality="3" ProductItemId="73b58cd9-86f4-4b45-87ee-2c9d22f47d7d" MaxYield="3" />
+				<AlchemyProduct Quality="4" ProductItemId="73b58cd9-86f4-4b45-87ee-2c9d22f47d7d" MaxYield="3" />
+			</Products>
+			<Steps>
+				<AlchemyRecipeStep StepId="1" StepType="Trivial" Condition="PotionBase() AND IngredientCount('7259b9bc-dfae-487e-a8bb-c1f500894e0c')&gt;=1 AND IngredientCount('b9de1d84-a0c1-4b81-9f60-8d7fbb3cb9d4')&gt;=1" />
+				<AlchemyRecipeStep StepId="2" StepType="Easy" FeedbackPriority="1" UIText="alch_antinighthawk_step_1" Condition="PotionBase() AND IngredientCount('7259b9bc-dfae-487e-a8bb-c1f500894e0c')==1 AND IngredientCount('b9de1d84-a0c1-4b81-9f60-8d7fbb3cb9d4')==1" />
+				<AlchemyRecipeStep StepId="3" StepType="Easy" FeedbackPriority="2" UIText="alch_chamomile_decoction_step_2" Condition="IsMilled('7259b9bc-dfae-487e-a8bb-c1f500894e0c', 0)" />
+				<AlchemyRecipeStep StepId="4" StepType="Hard" FeedbackPriority="5" UIText="alch_chamomile_decoction_step_3" Condition="WeakBoilingTime('7259b9bc-dfae-487e-a8bb-c1f500894e0c', 1)" />
+				<AlchemyRecipeStep StepId="5" StepType="Easy" FeedbackPriority="3" UIText="alch_chamomile_decoction_step_4" Condition="IsMilled('b9de1d84-a0c1-4b81-9f60-8d7fbb3cb9d4', 1)" />
+				<AlchemyRecipeStep StepId="6" StepType="Hard" FeedbackPriority="6" Condition="WeakBoilingTime('b9de1d84-a0c1-4b81-9f60-8d7fbb3cb9d4', 0)" />
+				<AlchemyRecipeStep StepId="7" StepType="Easy" FeedbackPriority="7" Condition="IsBaseDistilled(0)" />
+			</Steps>
+		</AlchemyRecipe>
+	</AlchemyRecipes>
+</database>

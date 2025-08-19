@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="us-ascii"?>
+<database xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" name="barbora" xsi:noNamespaceSchemaLocation="item.xsd">
+	<ItemClasses version="8">
+		<Food HealthBenefit="0" RefreshBenefit="5" NutritionBenefit="7" ShortTermNutritionBenefitRatio="0.5" AlcoholContent="0" DecayTime="0" Type="1" SubType="4" BuffDefinitionId="1c3b726d-b360-43ba-86c4-dada5a999774" UiSound="ui_consume_drink" IsDivisible="true" IconId="potion_antinighthawk" UIInfo="ui_in_potion_antinighthawk" UIName="ui_nm_potion_antinighthawk" Model="manmade/task_specific_props/alchemy/ceramics/saving_potion_flask_ceramic_c" Material="manmade/task_specific_props/alchemy/ceramics/potion_flask_alcohol" Weight="0.1" Price="200" FadeCoef="1" VisibilityCoef="1.87082875" Id="73b58cd9-86f4-4b45-87ee-2c9d22f47d7d" Name="potion_antinighthawk" />
+	</ItemClasses>
+</database>

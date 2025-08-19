@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="us-ascii"?>
+<database xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" name="barbora" xsi:noNamespaceSchemaLocation="../database.xsd">
+	<perks version="1">
+		<perk autolearnable="false" perk_id="455c74af-649f-44ab-a128-4f970e5f6034" perk_name="Alch recipe - anti-owl" visibility="0" />
+	</perks>
+</database>

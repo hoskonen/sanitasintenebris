@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="us-ascii"?>
+<database xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" name="barbora" xsi:noNamespaceSchemaLocation="../database.xsd">
+	<perk_recipes version="1">
+		<perk_recipe perk_id="455c74af-649f-44ab-a128-4f970e5f6034" recipe_id="67" />
+	</perk_recipes>
+</database>

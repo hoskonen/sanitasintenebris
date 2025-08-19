@@ -1,0 +1,37 @@
+<Table>
+<!-- Buff Sheltered -->
+<Row><Cell>buff_sheltered</Cell><Cell>Sheltered</Cell><Cell>Sheltered</Cell></Row>
+<Row><Cell>buff_sheltered_desc</Cell><Cell>You've found well-needed shelter from the elements of nature — a roof above your head, a warm corner to snuggle into and a peaceful moment to steady your breath.</Cell><Cell>You've found well-needed shelter from the elements of nature — a roof above your head, a warm corner to snuggle into and a peaceful moment to steady your breath.</Cell></Row>
+
+<!-- Buff Wetness Rain - Mild -->
+<Row><Cell>buff_wetness_rain_mild</Cell><Cell>Drizzle</Cell><Cell>Drizzle</Cell></Row>
+<Row><Cell>buff_wetness_rain_mild_desc</Cell><Cell>The drizzle soaked in during the night. Now you feel the cold bite through every layer.</Cell><Cell>The drizzle soaked in during the night. Now you feel the cold bite through every layer.</Cell></Row>
+
+<!-- Buff Wetness Rain - Moderate -->
+<Row><Cell>buff_wetness_rain_moderate</Cell><Cell>Soaked</Cell><Cell>Soaked</Cell></Row>
+<Row><Cell>buff_wetness_rain_moderate_desc</Cell><Cell>You were caught in steady rain through the night. Your garments cling to your skin, and warmth is hard to find.</Cell><Cell>You were caught in steady rain through the night. Your garments cling to your skin, and warmth is hard to find.</Cell></Row>
+
+<!-- Buff Wetness Rain - Severe -->
+<Row><Cell>buff_wetness_rain_severe</Cell><Cell>Drenched</Cell><Cell>Drenched</Cell></Row>
+<Row><Cell>buff_wetness_rain_severe_desc</Cell><Cell>A night spent beneath the dripping sky or in damp shelter has left you soaked to the bone. Your body aches and your spirit wanes.</Cell><Cell>A night spent beneath the dripping sky or in damp shelter has left you soaked to the bone. Your body aches and your spirit wanes.</Cell></Row>
+
+<!-- Buff Drying Normal -->
+<Row><Cell>buff_drying_normal</Cell><Cell>Drying Off</Cell><Cell>Drying Off</Cell></Row>
+<Row><Cell>buff_drying_normal_desc</Cell><Cell>Though still cold, you feel the warmth slowly returning to your fingertips, the familiar feeling of becoming youself again, the feeling of your grip tightening around your weapon.</Cell><Cell>Though still cold, you feel the warmth slowly returning to your fingertips, the familiar feeling of becoming youself again, the feeling of your grip tightening around your weapon.</Cell></Row>
+
+<!-- Buff Drying Fire Source -->
+<Row><Cell>buff_drying_firesource</Cell><Cell>Warm Hearth</Cell><Cell>Warm Hearth</Cell></Row>
+<Row><Cell>buff_drying_firesource_desc</Cell><Cell>There's nothing better than a crackling fireplace. The heat drives out the damp and restores hope, strength and comfort.</Cell><Cell>There's nothing better than a crackling fireplace. The heat drives out the damp and restores hope, strength and comfort.</Cell></Row>
+
+<!-- Buff Torch -->
+<Row><Cell>buff_torch</Cell><Cell>Torchlight</Cell><Cell>Torchlight</Cell></Row>
+<Row><Cell>buff_torch_desc</Cell><Cell>A modest flame held close keeps the cold at bay. It's not a hearth, but it'll do for now.</Cell><Cell>A modest flame held close keeps the cold at bay. It's not a hearth, but it'll do for now.</Cell></Row>
+
+<!-- Buff Refreshed -->
+<Row><Cell>buff_refreshed</Cell><Cell>Refreshed</Cell><Cell>Refreshed</Cell></Row>
+<Row><Cell>buff_refreshed_desc</Cell><Cell>TBD</Cell><Cell>TBD</Cell></Row>
+
+<!-- Buff Cleansed and Dried -->
+<Row><Cell>buff_cleansed_dried</Cell><Cell>Cleansed and Dried</Cell><Cell>Cleansed and Dried</Cell></Row>
+<Row><Cell>buff_cleansed_dried_desc</Cell><Cell>TBD</Cell><Cell>TBD</Cell></Row>
+</Table> 

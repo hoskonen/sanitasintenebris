@@ -1,0 +1,69 @@
+<?xml version="1.0" encoding="us-ascii"?>
+<database xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" name="barbora"
+	xsi:noNamespaceSchemaLocation="../database.xsd">
+	<buffs version="1">
+		<!-- Sheltered Buff -->
+		<buff buff_class_id="4" buff_desc="buff_sheltered_desc" buff_exclusivity_id="1"
+			buff_id="61d8e6fd-b3b0-496c-9982-a03e9d020fe5" buff_lifetime_id="0"
+			buff_name="buff_sheltered" buff_ui_name="buff_sheltered" buff_ui_type_id="2"
+			buff_ui_visibility_id="3" icon_id="buff_sheltered" is_persistent="true"
+			slot_buff_ui_name="buff_sheltered" implementation="Cpp:Constant" buff_params="xpm*1.2" />
+
+		<!-- Buff Wetness Rain - Mild -->
+		<buff buff_class_id="4" buff_desc="buff_wetness_rain_mild_desc" buff_exclusivity_id="1"
+			buff_id="6c348be1-24f1-44e4-899f-d5f5fd59395e" buff_lifetime_id="0"
+			buff_name="buff_wetness_rain_mild" buff_params="" buff_ui_name="buff_wetness_rain_mild"
+			buff_ui_type_id="2" buff_ui_visibility_id="3" icon_id="buff_wetness_rain_mild"
+			implementation="Cpp:Constant" is_persistent="true"
+			slot_buff_ui_name="buff_wetness_rain_mild" />
+
+		<!-- Buff Wetness Rain - Moderate -->
+		<buff buff_class_id="4" buff_desc="buff_wetness_rain_moderate_desc" buff_exclusivity_id="1"
+			buff_id="91e8b6cf-03ad-4a3f-a3c3-bb594a8825d6" buff_lifetime_id="0"
+			buff_name="buff_wetness_rain_moderate"
+			buff_params="noi*1.2,exh*1.2,Run-0.05,charisma-1,hunger-0.001/s,agility-1,con+0.5"
+			buff_ui_name="buff_wetness_rain_moderate" buff_ui_type_id="2" buff_ui_visibility_id="3"
+			icon_id="buff_wetness_rain_moderate" implementation="Cpp:Constant" is_persistent="true"
+			slot_buff_ui_name="buff_wetness_rain_moderate" />
+
+		<!-- Buff Wetness Rain - Severe -->
+		<buff buff_class_id="4" buff_desc="buff_wetness_rain_severe_desc" buff_exclusivity_id="1"
+			buff_id="de21390e-bd17-4c4e-a58c-d1ab688177c8" buff_lifetime_id="0"
+			buff_name="buff_wetness_rain_severe"
+			buff_params="noi*1.3,exh*1.3,Run-0.10,Walk-0.05,charisma-2,hunger-0.002/s,agility-2,con+1"
+			buff_ui_name="buff_wetness_rain_severe" buff_ui_type_id="2" buff_ui_visibility_id="3"
+			icon_id="buff_wetness_rain_severe" implementation="Cpp:Constant" is_persistent="true"
+			slot_buff_ui_name="buff_wetness_rain_severe" />
+
+		<!-- Buff Drying Normal -->
+		<buff buff_class_id="4" buff_desc="buff_drying_normal_desc" buff_exclusivity_id="1"
+			buff_id="7c4a5e71-23d2-4e26-b70f-b2932a7b0f59" buff_lifetime_id="0"
+			buff_name="buff_drying_normal" buff_params="" buff_ui_name="buff_drying_normal"
+			buff_ui_type_id="1" buff_ui_visibility_id="3" icon_id="buff_drying_normal"
+			implementation="Cpp:Constant" is_persistent="true"
+			slot_buff_ui_name="buff_drying_normal" />
+
+		<!-- Buff Drying Fire Source -->
+		<buff buff_class_id="4" buff_desc="buff_drying_firesource_desc" buff_exclusivity_id="1"
+			buff_id="43d2ef34-8f0f-4b76-8966-5c9aaf29e1bd" buff_lifetime_id="0"
+			buff_name="buff_drying_firesource" buff_params="" buff_ui_name="buff_drying_firesource"
+			buff_ui_type_id="1" buff_ui_visibility_id="3" icon_id="buff_drying_firesource"
+			implementation="Cpp:Constant" is_persistent="true"
+			slot_buff_ui_name="buff_drying_firesource" />
+
+		<!-- Buff Refreshed -->
+		<buff buff_class_id="4" buff_desc="buff_refreshed_desc" buff_exclusivity_id="1"
+			buff_id="c98c1439-bae0-43f1-9d3b-6a64a13e5e82" buff_lifetime_id="0"
+			buff_name="buff_refreshed" buff_params="charisma+1" buff_ui_name="buff_refreshed"
+			buff_ui_type_id="1" buff_ui_visibility_id="3" icon_id="buff_refreshed"
+			implementation="Cpp:Constant" is_persistent="true" slot_buff_ui_name="buff_refreshed" />
+
+		<!-- Buff Cleansed and Dried -->
+		<buff buff_class_id="4" buff_desc="buff_cleansed_dried_desc" buff_exclusivity_id="1"
+			buff_id="1a1e94c5-3e1d-4d58-b442-726ae9f4f7c1" buff_lifetime_id="0"
+			buff_name="buff_cleansed_dried" buff_params="charisma+3"
+			buff_ui_name="buff_cleansed_dried" buff_ui_type_id="1" buff_ui_visibility_id="3"
+			icon_id="buff_cleansed_dried" implementation="Cpp:Constant" is_persistent="true"
+			slot_buff_ui_name="buff_cleansed_dried" />
+	</buffs>
+</database>
