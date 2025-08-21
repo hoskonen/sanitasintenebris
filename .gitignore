@@ -1,4 +1,5 @@
 .vscode
+.VSCodeCounter
 Data/*.pak
 Localization/*.pak
 Data/Libs/UI/Textures/
