@@ -38,10 +38,13 @@ State                             = setmetatable({}, {
     __index = originalState,
     __newindex = function(t, k, v)
         if k == "shelteredActive" then
-            local stack = debug.traceback("", 2)
-            System.LogAlways("4$ [Sanitas] ⚠️ Guard: State.shelteredActive set to " .. tostring(v))
-            System.LogAlways("4$ [Sanitas] 🔍 Stack trace:\n" .. stack)
+            if Config.debugBuffLogic then -- 👈 add this
+                local stack = debug.traceback("", 2)
+                System.LogAlways("4$ [Sanitas] ⚠️ Guard: State.shelteredActive set to " .. tostring(v))
+                System.LogAlways("4$ [Sanitas] 🔍 Stack trace:\n" .. stack)
+            end
         end
+
         rawset(originalState, k, v)
     end
 })

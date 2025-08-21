@@ -26,5 +26,6 @@ Script.ReloadScript("Scripts/SanitasInTenebris/RainCleans.lua")  -- 🚿 optiona
 Script.ReloadScript("Scripts/SanitasInTenebris/Main.lua")
 
 -- Bind poll functions globally for CryEngine timer access
-_G["SanitasInTenebris.CheckRain"] = SanitasInTenebris.CheckRain
+_G["SanitasInTenebris.CheckRain"]   = SanitasInTenebris.CheckRain
 _G["SanitasInTenebris.OutdoorPoll"] = SanitasInTenebris.OutdoorPoll
+_G["SanitasInTenebris.IndoorPoll"]  = SanitasInTenebris.SafeIndoorPoll

@@ -32,6 +32,12 @@ function InteriorLogic.IsPlayerInInterior()
 end
 
 function InteriorLogic.HandleInteriorState(player, soul)
+    if State._indoorInitDone then
+        if Config.debugIndoor then Utils.Log("[InteriorLogic]: HandleInteriorState skipped — already initialized") end
+        return
+    end
+    State._indoorInitDone = true
+
     if not player or not soul then
         Utils.Log("❌ [InteriorLogic]: HandleInteriorState: player or soul is nil — skipping indoor logic")
         return
@@ -39,8 +45,9 @@ function InteriorLogic.HandleInteriorState(player, soul)
 
     State.pollingSuspended = true
 
-    Script.SetTimerForFunction(3000, "SanitasInTenebris.CheckExitInterior")
-    Script.SetTimerForFunction(Config.pollingInterval, "SanitasInTenebris.IndoorPoll")
+    SanitasInTenebris.ScheduleExitInterior()
+    --Script.SetTimerForFunction(Config.pollingInterval, "SanitasInTenebris.IndoorPoll")
+    SanitasInTenebris.ScheduleIndoorPoll()
 
     BuffLogic.ApplyShelteredBuff(soul)
     State.wasIndoors = true
@@ -49,6 +56,9 @@ function InteriorLogic.HandleInteriorState(player, soul)
     if not State.dryingStarted then
         State.dryingStarted = true
         Utils.Log("💧 [InteriorLogic]: Started DryingSystem via HandleInteriorState()")
-        SanitasInTenebris.DryingSystem.Start()
+        local ok, err = pcall(SanitasInTenebris.DryingSystem.Start)
+        if not ok then
+            Utils.Log("💥 [InteriorLogic]: DryingSystem.Start failed: " .. tostring(err))
+        end
     end
 end

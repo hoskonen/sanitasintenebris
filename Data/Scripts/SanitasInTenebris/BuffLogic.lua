@@ -4,9 +4,48 @@ System.LogAlways("4$ [Sanitas] ✅ Loaded: BuffLogic")
 BuffLogic = {}
 local debugEnabled = Config.debugBuffLogic == true
 
+-- function BuffLogic.ApplyShelteredBuff(soul)
+--     if not soul then
+--         Utils.Log("[BuffLogic->ApplyShelteredBuff]: Soul is nil")
+--         return
+--     end
+
+--     if State.shelteredActive then
+--         if Config.debugBuffLogic then
+--             Utils.Log("[BuffLogic->ApplyShelteredBuff]: ApplyShelteredBuff skipped — already active")
+--         end
+--         return
+--     end
+
+--     local removed = soul:RemoveAllBuffsByGuid(Config.buffs.sheltered)
+--     if Config.debugBuffLogic then
+--         Utils.Log("[BuffLogic->ApplyShelteredBuff]: Removed previous sheltered buff(s): " .. tostring(removed))
+--     end
+
+--     local added = soul:AddBuff(Config.buffs.sheltered)
+--     if Config.debugBuffLogic then
+--         Utils.Log("[BuffLogic->ApplyShelteredBuff]: Attempted to add sheltered buff: " .. tostring(added))
+--     end
+
+--     if added then
+--         State.shelteredActive = true
+--         Utils.Log("[BuffLogic->ApplyShelteredBuff]: Sheltered buff successfully applied")
+--     else
+--         Utils.Log("[BuffLogic->ApplyShelteredBuff]: Failed to apply sheltered buff")
+--     end
+-- end
+
 function BuffLogic.ApplyShelteredBuff(soul)
     if not soul then
         Utils.Log("[BuffLogic->ApplyShelteredBuff]: Soul is nil")
+        return
+    end
+
+    -- Re-entrancy guard
+    if State._shelterApplying then
+        if Config.debugBuffLogic then
+            Utils.Log("[BuffLogic->ApplyShelteredBuff]: Re-entry blocked")
+        end
         return
     end
 
@@ -16,6 +55,8 @@ function BuffLogic.ApplyShelteredBuff(soul)
         end
         return
     end
+
+    State._shelterApplying = true
 
     local removed = soul:RemoveAllBuffsByGuid(Config.buffs.sheltered)
     if Config.debugBuffLogic then
@@ -33,6 +74,8 @@ function BuffLogic.ApplyShelteredBuff(soul)
     else
         Utils.Log("[BuffLogic->ApplyShelteredBuff]: Failed to apply sheltered buff")
     end
+
+    State._shelterApplying = false
 end
 
 function BuffLogic.RemoveShelteredBuff(player, soul)

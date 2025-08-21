@@ -85,37 +85,95 @@ end
 
 function SanitasInTenebris.OutdoorPoll()
     if State.pollingSuspended then
-        if debugEnabled then
-            Utils.Log("[Main->OutdoorPoll]: Skipped — polling suspended")
-        end
+        if debugEnabled then Utils.Log("[Main->OutdoorPoll]: Skipped — polling suspended") end
         return
+    end
+
+    -- Query interior ONCE and reuse the result
+    local isInterior = InteriorLogic.IsPlayerInInterior()
+
+    if isInterior then
+        if not State._indoorInitDone then
+            State.pollingSuspended = true
+            local player = Utils.GetPlayer()
+            local soul = player and player.soul
+            if player and soul then
+                local ok, err = pcall(function()
+                    InteriorLogic.HandleInteriorState(player, soul)
+                end)
+                if not ok then
+                    Utils.Log("💥 [Main->OutdoorPoll]: Immediate HandleInteriorState error: " .. tostring(err))
+                end
+            end
+        end
+        return -- skip roof/fire while indoors
     end
 
     if debugEnabled and Config.enableLogOnce then
         Utils.LogOnce("drying_skipped_rain", "[Main->OutdoorPoll]: OutdoorPoll running...")
     end
 
-    -- 🔥 Fire detection
+    -- 🔥 Fire detection (only when truly outside)
     HeatDetection.HasNearbyFireSource()
 
-    -- 🏠 Roof detection
+    -- 🏠 Roof detection (only when truly outside)
     local roofed = SanitasInTenebris.RoofDetection.IsUnderRoof()
     State.roofedOutside = roofed
-
     if Config.debugRoofDetection then
         Utils.Log("[Main->OutdoorPoll]: RoofedOutside = " .. tostring(roofed))
     end
+
+    -- Debounce roof state (prevents thrash at thresholds)
+    State._roofPrev = (State._roofPrev == nil) and roofed or State._roofPrev
+    State._roofStableSince = State._roofStableSince or System.GetCurrTime()
+
+    local now = System.GetCurrTime()
+    if roofed ~= State._roofPrev then
+        State._roofPrev = roofed
+        State._roofStableSince = now
+    end
+    local stable = (now - State._roofStableSince) >= 2.0
+
+    -- Fallback shelter when XGen didn't mark interior
+    if stable then
+        local player = Utils.GetPlayer()
+        local soul = player and player.soul
+        if soul then
+            if roofed and not State.shelteredActive then
+                BuffLogic.ApplyShelteredBuff(soul)
+            elseif (not roofed) and State.shelteredActive then
+                BuffLogic.RemoveShelteredBuff(player, soul)
+            end
+        end
+    end
 end
 
+-- 🔒 Single-shot IndoorPoll wrapper (disarms, then runs)
+-- function SanitasInTenebris.SafeIndoorPoll()
+--     State._indoorTimerArmed = false
+--     local ok, err = pcall(SanitasInTenebris.IndoorPoll)
+--     if not ok then
+--         Utils.Log("[Main->SafeIndoorPoll] IndoorPoll runtime error: " .. tostring(err))
+--     end
+-- end
+
+-- 🔒 Single-shot IndoorPoll wrapper (disarms, runs, then re-arms if still indoors)
 function SanitasInTenebris.SafeIndoorPoll()
+    State._indoorTimerArmed = false -- consume this one-shot
+
     local ok, err = pcall(SanitasInTenebris.IndoorPoll)
     if not ok then
         Utils.Log("[Main->SafeIndoorPoll] IndoorPoll runtime error: " .. tostring(err))
     end
+
+    -- Re-arm only if we're still in indoor loop
+    if State.pollingSuspended or State.wasIndoors == true then
+        SanitasInTenebris.ScheduleIndoorPoll()
+    end
 end
 
 function SanitasInTenebris.IndoorPoll()
-    Script.SetTimer(Config.pollInterval, SanitasInTenebris.SafeIndoorPoll)
+    --Script.SetTimer(Config.pollingInterval, SanitasInTenebris.SafeIndoorPoll)
 
     local player = Utils.GetPlayer()
     local soul = player and player.soul
@@ -137,6 +195,22 @@ function SanitasInTenebris.IndoorPoll()
     if debugEnabled then Utils.Log("[Main->IndoorPoll]: IndoorPoll tick") end
 
     local isIndoors = InteriorLogic.IsPlayerInInterior()
+
+    -- Debounce interior state (require stability before acting)
+    State._indoorPrev = (State._indoorPrev == nil) and isIndoors or State._indoorPrev
+    State._indoorStableSince = State._indoorStableSince or System.GetCurrTime()
+
+    local now = System.GetCurrTime()
+    if isIndoors ~= State._indoorPrev then
+        State._indoorPrev = isIndoors
+        State._indoorStableSince = now
+    end
+    local indoorStable = (now - State._indoorStableSince) >= 1.5
+    if not indoorStable then
+        -- don't flip buffs yet—wait for stability
+        return
+    end
+
     local changed = (isIndoors ~= State.wasIndoors)
 
     if changed then
@@ -147,10 +221,8 @@ function SanitasInTenebris.IndoorPoll()
 
         if isIndoors then
             BuffLogic.ApplyShelteredBuff(soul)
-            State.shelteredActive = true
         else
-            BuffLogic.RemoveShelteredBuff(soul)
-            State.shelteredActive = false
+            BuffLogic.RemoveShelteredBuff(player, soul)
         end
 
         State.wasIndoors = isIndoors
@@ -187,6 +259,7 @@ function SanitasInTenebris.IndoorPoll()
 end
 
 function SanitasInTenebris.CheckExitInterior()
+    State._exitTimerArmed = false -- consume one-shot
     local player = Utils.GetPlayer()
     local soul = player and player.soul
     if not player then return end
@@ -224,6 +297,15 @@ function SanitasInTenebris.CheckExitInterior()
 
         -- Update transition state
         State.wasIndoors = false
+    end
+
+    if InteriorLogic.IsPlayerInInterior() then
+        SanitasInTenebris.ScheduleExitInterior() -- still indoors → keep one timer alive
+    else
+        -- Leaving interior: resume outdoor polling and clear indoor session guards
+        State.pollingSuspended = false
+        State._indoorInitDone = false
+        State._indoorTimerArmed = false
     end
 end
 
@@ -275,9 +357,18 @@ function SanitasInTenebris.OnGameplayStarted(actionName, eventName, argTable)
     end
 end
 
+-- 🔒 Schedule IndoorPoll only if not already armed
+-- function SanitasInTenebris.ScheduleIndoorPoll()
+--     if State._indoorTimerArmed then return end
+--     State._indoorTimerArmed = true
+--     Script.SetTimerForFunction(Config.pollingInterval or 1000, "SanitasInTenebris.SafeIndoorPoll")
+-- end
+
+-- 🔒 Schedule IndoorPoll only if not already armed
 function SanitasInTenebris.ScheduleIndoorPoll()
-    if debugEnabled then Utils.Log("[Main->ScheduleIndoorPoll]: IndoorPoll scheduled") end
-    Script.SetTimer(Config.pollInterval, SanitasInTenebris.IndoorPoll)
+    if State._indoorTimerArmed then return end
+    State._indoorTimerArmed = true
+    Script.SetTimerForFunction((Config.pollingInterval or 1000), "SanitasInTenebris.SafeIndoorPoll")
 end
 
 function SanitasInTenebris.CheckReEnterInterior()
@@ -287,7 +378,7 @@ function SanitasInTenebris.CheckReEnterInterior()
         -- Transition: went from outdoors → indoors
         if debugEnabled then
             Utils.Log(
-            "[Main->ScheduleIndoorPoll]: Player re-entered interior — suspending rain polling and restarting IndoorPoll")
+                "[Main->ScheduleIndoorPoll]: Player re-entered interior — suspending rain polling and restarting IndoorPoll")
         end
 
         State.pollingSuspended = true
@@ -299,6 +390,13 @@ function SanitasInTenebris.CheckReEnterInterior()
 
     -- Continue checking periodically
     Script.SetTimer(3000, SanitasInTenebris.CheckReEnterInterior)
+end
+
+-- 🔒 Single-shot scheduler for CheckExitInterior (3s cadence)
+function SanitasInTenebris.ScheduleExitInterior()
+    if State._exitTimerArmed then return end
+    State._exitTimerArmed = true
+    Script.SetTimerForFunction(3000, "SanitasInTenebris.CheckExitInterior")
 end
 
 UIAction.RegisterEventSystemListener(SanitasInTenebris, "System", "OnGameplayStarted", "OnGameplayStarted")
