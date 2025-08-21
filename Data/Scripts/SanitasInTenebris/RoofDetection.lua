@@ -1,25 +1,49 @@
 System.LogAlways("4$ [Sanitas] ✅ Loaded: RoofDetection")
 
 SanitasInTenebris.RoofDetection = {}
+local function _lc(s) return (tostring(s or "")):lower() end
 
 function SanitasInTenebris.RoofDetection.IsUnderRoof(maxDistance)
     local player = Utils.GetPlayer()
     if not player then return false end
 
-    local origin = player:GetWorldPos()
-    local direction = { x = 0, y = 0, z = 1 } -- Upward
-    maxDistance = maxDistance or 5.0
+    local pos = player:GetWorldPos() or player:GetPos()
+    if not pos then return false end
 
-    local hits = Physics.RayWorldIntersection(origin, direction, maxDistance, ent_static)
+    local startH   = Config.roofRayStartHeight or 0.5
+    local rayLen   = maxDistance or Config.roofRayMaxDistance or 10.0
+
+    -- Start slightly above head, cast straight up for rayLen meters
+    local rayStart = { x = pos.x, y = pos.y, z = pos.z + startH }
+    local rayDir   = { x = 0, y = 0, z = rayLen }
+
+    -- IMPORTANT: 3rd arg = nMaxHits (not distance!). Direction magnitude encodes distance.
+    -- Use ent_all and skip the player entity so we don’t hit our own capsule.
+    local hits     = Physics.RayWorldIntersection(rayStart, rayDir, 1, ent_all, player.id)
 
     if hits and #hits > 0 then
+        local hit    = hits[1]
+        local e      = hit.entity
+        local cls    = _lc(e and e.class or "")
+        local ignore = Config.roofIgnoreClasses or {}
+
+        if ignore[cls] then
+            if Config.debugRoofDetection then
+                Utils.Log(("🪵 [RoofDetection]: Ignored overhead hit (class=%s, name=%s)")
+                    :format(cls, e and (e:GetName() or "unnamed") or "nil"))
+            end
+            return false
+        end
+
         if Config.debugRoofDetection then
-            Utils.Log("🧱 [RoofDetection]: Overhead hit detected — likely under a roof")
+            local hx, hy, hz = hit.pos and hit.pos.x or 0, hit.pos and hit.pos.y or 0, hit.pos and hit.pos.z or 0
+            Utils.Log(("🧱 [RoofDetection]: Overhead hit → roofed | class=%s | name=%s | hit=(%.2f, %.2f, %.2f)")
+                :format(cls, e and (e:GetName() or "unnamed") or "nil", hx, hy, hz))
         end
         return true
     else
         if Config.debugRoofDetection then
-            Utils.Log("🌞 [RoofDetection]: No overhead geometry detected — likely outdoors")
+            Utils.Log("🌞 [RoofDetection]: No overhead geometry detected — not roofed")
         end
         return false
     end

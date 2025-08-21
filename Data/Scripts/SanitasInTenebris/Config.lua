@@ -11,15 +11,15 @@ Config = {
     rainWetnessGain = 0.5,          -- base wetness gain per tick from rain
     -- MAIN DEBUG FLAGS
     enableLogOnce = true,
-    mainDebug = false,
+    mainDebug = true,
     debugPolling = true,
     debugRainTracker = true,
     debugBuffLogic = true,
-    debugRoofDetection = false,
+    debugRoofDetection = true,
     fireDebug = false,
     indoorDebug = true,
     interiorLogicDebug = true,
-    debugDrying = true,
+    debugDrying = false,
     rainCleansDebug = false,
     --
     drying = {
@@ -78,5 +78,18 @@ Config = {
         -- healingbench = 0.3,
         -- miner_roasting = 1.0,
         -- butchersmokehouse = 0.7,
-    }
+    },
+    -- Roof ray settings
+    roofRayStartHeight = 0.5,  -- meters above player head to start the ray
+    roofRayMaxDistance = 10.0, -- how far up to look for a roof/ceiling
+    roofIgnoreClasses = {      -- lowercase class names we'll ignore (vegetation etc.)
+        tree = true,
+        bush = true,
+        vegetation = true,
+        foliage = true,
+        grass = true,
+        hedge = true,
+        shrub = true
+    },
+
 }
