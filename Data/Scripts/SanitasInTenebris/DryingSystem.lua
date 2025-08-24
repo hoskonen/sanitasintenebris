@@ -11,214 +11,197 @@ local HeatDetection = SanitasInTenebris.HeatDetection
 
 local debugEnabled = Config.debugDrying == true
 
+-- Resolve RainTracker once to avoid global lookups/nil surprises
+local RainTracker = SanitasInTenebris.RainTracker
+
+-- Nil-safe helpers for nested config
+local function _rainStopThresh()
+    return (Config.rain and Config.rain.dryingThreshold) or 0.1
+end
+
+local function _dryingStartDelaySec()
+    -- (ms in config) → seconds here; fall back to 30s
+    local ms = (Config.drying and Config.drying.startDelay) or 30000
+    return ms / 1000
+end
+
+local function _tickIntervalSec()
+    return ((Config.drying and Config.drying.tickInterval) or 5000) / 1000
+end
+
 function SanitasInTenebris.DryingSystem.Start()
+    -- Initialize rainStoppedAt if the game hasn’t set it yet
     if not State.rainStoppedAt then
         State.rainStoppedAt = System.GetCurrTime()
         if debugEnabled then
-            Utils.Log("[DryingSystem->Start]: Initialized rainStoppedAt to current time = " ..
-                tostring(State.rainStoppedAt))
+            Utils.Log("[DryingSystem->Start]: Initialized rainStoppedAt = " .. tostring(State.rainStoppedAt))
         end
     end
 
-    Utils.Log("💧 [DryingSystem->Start]: Scheduling first Tick")
-    Script.SetTimer(Config.drying.tickInterval or 5000, SanitasInTenebris.DryingSystem.Tick)
+    if debugEnabled then Utils.Log("💧 [DryingSystem->Start]: Scheduling first Tick") end
+    Script.SetTimer((Config.drying and Config.drying.tickInterval) or 5000, SanitasInTenebris.DryingSystem.Tick)
 end
 
 function SanitasInTenebris.DryingSystem.Tick()
-    --[[ 📦 DryingSystem.Tick — Main Drying Loop
+    -- Unconditional breadcrumb so we know we actually entered
+    Utils.Log("[DryingSystem->Tick]: Top-level entry")
 
-    Sequence:
-    1. ✅ Check wetness and rainStoppedAt — skip if invalid
-    2. 🔥 Check environment (indoor/outdoor, fire, torch, rain)
-    3. 📊 Calculate drying rate (via GetCurrentDryingRate)
-    4. 💧 Decrease wetness based on time + rate
-    5. 🔁 Update wetness state, buffs, and re-arm timer
-    ]]
+    -- Sequence:
+    -- 1. ✅ Check wetness and rainStoppedAt — skip if invalid
+    -- 2. 🔥 Check environment (indoor/outdoor, fire, torch, rain)
+    -- 3. 📊 Calculate drying rate (via GetCurrentDryingRate)
+    -- 4. 💧 Decrease wetness based on time + rate
+    -- 5. 🔁 Update wetness state, buffs, and re-arm timer
 
-    Utils.Log("[DryingSystem->Tick]: Top-level entry reached")
-
-    local success, err = pcall(function()
+    local ok, err = pcall(function()
         -------------------------------------------------------------------
-        -- 🔎 1. Preconditions and Early Exit
+        -- 1) Preconditions
         -------------------------------------------------------------------
         local player = Utils.GetPlayer()
         local soul = player and player.soul
-
-        if debugEnabled then
-            Utils.Log("[DryingSystem->Tick]: entered")
-            Utils.Log("[DryingSystem->Tick]: Wetness level check: " .. tostring(State.wetnessPercent or "nil"))
-        end
-
         if not player or not soul then
-            if debugEnabled then Utils.Log("❌ [DryingSystem->Tick]: player or soul is nil") end
+            if debugEnabled then Utils.Log("❌ [DryingSystem->Tick]: player or soul is nil — skip") end
             return
         end
 
         local isOutside = not InteriorLogic.IsPlayerInInterior()
         local isIndoors = not isOutside
-        local dryingThreshold = Config.rain.dryingThreshold or 0.1
+        local dryingThreshold = _rainStopThresh()
 
-        Utils.Log("[DryingSystem->Tick]: Getting rain intensity...")
+        -- Safe rain read
         local rain = 0
-        local okRain, rainResult = pcall(EnvironmentModule.GetRainIntensity)
-
-        if okRain and rainResult then
-            rain = rainResult
-        else
-            Utils.Log("[DryingSystem->Tick]: GetRainIntensity failed or returned nil")
+        local okRain, rainVal = pcall(EnvironmentModule.GetRainIntensity)
+        if okRain and type(rainVal) == "number" then
+            rain = rainVal
+        elseif debugEnabled then
+            Utils.Log("⚠️ [DryingSystem->Tick]: GetRainIntensity failed/invalid, default rain=0")
         end
 
-        Utils.Log("📡 [DryingSystem->Tick]: rain = " .. tostring(rain))
         local now = System.GetCurrTime()
 
-        if State.lastRainValue == nil then
-            Utils.Log("[DryingSystem->Tick]: No previous rain — deferring rainStoppedAt logic")
-        else
+        -- Track threshold crossing locally too (robust with RainTracker’s logic)
+        if State.lastRainValue ~= nil then
             if rain < dryingThreshold and State.lastRainValue >= dryingThreshold then
                 State.rainStoppedAt = now
-                Utils.Log("[DryingSystem->Tick]: Rain dropped below threshold — starting drying countdown")
+                if debugEnabled then Utils.Log("[DryingSystem->Tick]: Crossed below threshold — rainStoppedAt=" .. now) end
             elseif rain >= dryingThreshold and State.lastRainValue < dryingThreshold then
                 State.rainStoppedAt = nil
-                Utils.Log("[DryingSystem->Tick]: Rain started again — aborting countdown")
+                if debugEnabled then Utils.Log("[DryingSystem->Tick]: Crossed above threshold — abort dry delay") end
             end
         end
-
-        -- Skip if raining enough to prevent drying
-        if isOutside and rain >= dryingThreshold then
-            if debugEnabled then Utils.Log("[DryingSystem->Tick]: Raining outside — skipping drying") end
-            return
-        end
-
         State.lastRainValue = rain
 
+        -- Block outdoor drying if raining enough
+        if isOutside and rain >= dryingThreshold then
+            if debugEnabled then Utils.Log("⛔ [DryingSystem->Tick]: Raining outside — skip") end
+            return
+        end
+
         -------------------------------------------------------------------
-        -- 🚿 2. Dryness Check
+        -- 2) Already dry?
         -------------------------------------------------------------------
         local wetness = State.wetnessPercent or 0
-
         if wetness <= 0 then
-            if State.normalDryingActive then
-                if debugEnabled then
-                    Utils.Log("[DryingSystem->Tick]: BuffLogic = " .. tostring(BuffLogic))
-                    Utils.Log("[DryingSystem->Tick]: RemoveBuffByGuid = " ..
-                        tostring(BuffLogic and BuffLogic.RemoveBuffByGuid))
-                end
-
-                local removed = BuffLogic.RemoveBuffByGuid(Config.buffs.buff_drying_normal)
-                if removed and debugEnabled then
-                    Utils.Log("[DryingSystem->Tick]: Dry — removed drying buffs")
-                end
+            -- Remove drying buff(s) safely
+            local removed = false
+            if BuffLogic and BuffLogic.RemoveBuffByGuid then
+                removed = BuffLogic.RemoveBuffByGuid(Config.buffs.buff_drying_normal)
+            elseif soul and soul.RemoveAllBuffsByGuid then
+                removed = soul:RemoveAllBuffsByGuid(Config.buffs.buff_drying_normal)
             end
+            if removed and debugEnabled then Utils.Log("[DryingSystem->Tick]: Dry — removed drying buffs") end
 
-            if debugEnabled and not State.wasDryLogged then
-                Utils.Log("[DryingSystem->Tick]: Already dry — skipping")
-            end
-
-            State.wasDryLogged = true
             State.warmingActive = false
+            State.normalDryingActive = false
+            State.fireDryingActive = false
             return
         end
 
-        State.wasDryLogged = false
-        Utils.Log("[DryingSystem->Tick]: rainStoppedAt = " .. tostring(State.rainStoppedAt))
-
         -------------------------------------------------------------------
-        -- ⏳ 3. Delay Check
+        -- 3) Delay since rain stopped (seconds)
         -------------------------------------------------------------------
-        local dryingDelay = (Config.drying.startDelay or 30000) / 1000
-
-        if State.rainStoppedAt == nil then
-            if debugEnabled then
-                Utils.Log("[DryingSystem->Tick]: Skipping drying — rainStoppedAt is nil")
+        local delaySec = _dryingStartDelaySec()
+        if isOutside then
+            if not State.rainStoppedAt then
+                if debugEnabled then Utils.Log("[DryingSystem->Tick]: rainStoppedAt=nil — wait") end
+                return
             end
-            return
-        end
-
-        local elapsed = now - State.rainStoppedAt
-        if elapsed < dryingDelay then
-            if debugEnabled then
-                Utils.Log("[DryingSystem->Tick]: Elapsed since rain stopped = " .. tostring(elapsed))
+            local elapsed = now - State.rainStoppedAt
+            if elapsed < delaySec then
+                if debugEnabled then Utils.Log(string.format("[DryingSystem->Tick]: Waiting delay (%.1fs/%.1fs)", elapsed,
+                        delaySec)) end
+                return
             end
-            return
         end
 
         -------------------------------------------------------------------
-        -- 🔥 4. Heat Detection
+        -- 4) Heat detection
         -------------------------------------------------------------------
-        local nearFire, fireStrength
-        if not HeatDetection then
-            Utils.Log("[DryingSystem->Tick]: HeatDetection is nil!")
-            return
+        if not HeatDetection or type(HeatDetection.HasNearbyFireSource) ~= "function" then
+            if debugEnabled then Utils.Log("🔥 [DryingSystem->Tick]: HeatDetection unavailable — continuing without fire") end
         end
 
-        local okFire, fireErr = pcall(function()
-            nearFire, fireStrength = HeatDetection.HasNearbyFireSource(2.0)
-        end)
-
-        if not okFire then
-            Utils.Log("[DryingSystem->Tick]: HasNearbyFireSource failed: " .. tostring(fireErr))
-            return
+        local nearFire, fireStrength = false, 0
+        if HeatDetection and HeatDetection.HasNearbyFireSource then
+            local okFire, v1, v2 = pcall(function() return HeatDetection.HasNearbyFireSource(2.0) end)
+            if okFire then
+                nearFire, fireStrength = v1, v2 or 1.0
+            elseif debugEnabled then
+                Utils.Log("🔥 [DryingSystem->Tick]: Fire detection failed")
+            end
         end
-
-        Utils.Log("[DryingSystem->Tick]: HeatDetection — nearFire=" ..
-            tostring(nearFire) .. ", strength=" .. tostring(fireStrength))
+        if debugEnabled then Utils.Log("[DryingSystem->Tick]: Fire near=" ..
+            tostring(nearFire) .. " strength=" .. tostring(fireStrength)) end
 
         -------------------------------------------------------------------
-        -- 📊 5. Calculate Drying Rate
+        -- 5) Drying rate + apply
         -------------------------------------------------------------------
+        local m = Config.dryingMultiplier or {}
         local dryingRate = 0
-
-        if isIndoors and not nearFire then
-            dryingRate = Config.dryingMultiplier.indoorNoFire
-        elseif isOutside and not nearFire and rain < dryingThreshold then
-            dryingRate = Config.dryingMultiplier.outdoorNoRain
-        elseif nearFire then
-            dryingRate = Config.dryingMultiplier.nearFire
+        if nearFire then
+            dryingRate = m.nearFire or 1.0
+        elseif isIndoors then
+            dryingRate = m.indoorNoFire or 0.1
+        else
+            -- outside & not raining (we’re past the rain gate above)
+            dryingRate = m.outdoorNoRain or 0.2
         end
-
         if isOutside and Utils.IsTorchEquipped() then
-            dryingRate = dryingRate + (Config.dryingMultiplier.torch or 0)
+            dryingRate = dryingRate + (m.torch or 0.3)
         end
 
-        local tickIntervalSec = (Config.drying.tickInterval or 5000) / 1000
-        local dryingAmount = math.min(wetness, dryingRate * tickIntervalSec)
-
+        local dt = _tickIntervalSec()
+        local amount = math.min(wetness, dryingRate * dt)
         if debugEnabled then
-            Utils.Log("[DryingSystem->Tick]: DryingRate = " .. dryingRate ..
-                ", interval = " .. tickIntervalSec ..
-                ", amount = " .. dryingAmount)
+            Utils.Log(string.format("[DryingSystem->Tick]: rate=%.3f, dt=%.2f, amount=%.3f", dryingRate, dt, amount))
         end
 
-        State.wetnessPercent = math.max(0, wetness - dryingAmount)
-        RainTracker.RefreshWetnessBuffTier()
+        State.wetnessPercent = math.max(0, wetness - amount)
 
-        ------------------------------------------------------------
-        -- 🧼 6. Apply Buffs Based on Drying State
-        ------------------------------------------------------------
+        if RainTracker and type(RainTracker.RefreshWetnessBuffTier) == "function" then
+            RainTracker.RefreshWetnessBuffTier()
+        elseif debugEnabled then
+            Utils.Log("⚠️ [DryingSystem->Tick]: RainTracker.RefreshWetnessBuffTier missing")
+        end
+
+        -- Drying buffs
         if rain < dryingThreshold then
             if nearFire then
-                if not State.fireDryingActive then
-                    BuffLogic.ApplyDryingBuff("fire")
-                end
-            elseif not State.normalDryingActive then
-                -- Covers both indoors & outdoors when no fire is near
-                BuffLogic.ApplyDryingBuff("normal")
+                if not State.fireDryingActive then BuffLogic.ApplyDryingBuff("fire") end
+            else
+                if not State.normalDryingActive then BuffLogic.ApplyDryingBuff("normal") end
             end
         end
 
-        if debugEnabled then
-            Utils.Log("[DryingSystem->Tick]: Applied drying buff based on current state")
-        end
-
-
-        ------------------------------------------------------------
-        -- ⏱️ 7. Re-arm Polling
-        ------------------------------------------------------------
-        Script.SetTimer(Config.drying.tickInterval or 5000, SanitasInTenebris.DryingSystem.Tick)
+        -------------------------------------------------------------------
+        -- 6) Re-arm
+        -------------------------------------------------------------------
+        Script.SetTimer((Config.drying and Config.drying.tickInterval) or 5000, SanitasInTenebris.DryingSystem.Tick)
     end)
 
-    if not success and debugEnabled then
-        Utils.Log("[DryingSystem->Tick]: ERROR: " .. tostring(err))
+    if not ok then
+        -- This log is unconditional so you actually see the stack context
+        Utils.Log("💥 [DryingSystem->Tick]: ERROR: " .. tostring(err))
     end
 end
 

@@ -13,18 +13,18 @@ Config = {
     enableLogOnce = true,
     mainDebug = true,
     debugPolling = true,
-    debugRainTracker = false,
+    debugRainTracker = true,
     debugBuffLogic = false,
-    debugRoofDetection = true,
+    debugRoofDetection = false,
     fireDebug = false,
     indoorDebug = true,
     interiorLogicDebug = true,
-    debugDrying = false,
+    debugDrying = true,
     rainCleansDebug = false,
     --
     drying = {
         tickInterval = 2000,
-        startDelay = 3000
+        startDelay = 3000,
     },
     dryingMultiplier = {
         indoorNoFire = 0.001,  -- 🏠 Drying rate indoors without any fire

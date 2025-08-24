@@ -158,7 +158,7 @@ function RainTracker.CheckRain()
 
             if debugEnabled then
                 System.LogAlways(string.format(
-                    "%s 🧼 [RainTracker->CheckRain]: Rain Tick — rain=%.2f → +%.2f (wetness=%.2f%%)",
+                    "%s [RainTracker->CheckRain]: Rain Tick — rain=%.2f → +%.2f (wetness=%.2f%%)",
                     logPrefix, rain, adjustedGain, State.wetnessPercent or 0))
                 State.lastRainTickLog = now
             end
@@ -166,12 +166,15 @@ function RainTracker.CheckRain()
             RainTracker.RefreshWetnessBuffTier()
         end
 
-        -- Record rain stop time when dropping below drying threshold
-        if rain < (Config.dryingThreshold or 0.1) and (State.lastRainAmount or 1) >= (Config.dryingThreshold or 0.1) then
+        -- ▼ Compute stop threshold from nested config
+        local stopThresh = (Config.rain and Config.rain.dryingThreshold) or 0.1
+
+        -- ▼ If we just crossed from >= stopThresh to < stopThresh, mark the time
+        if rain < stopThresh and (State.lastRainAmount or 1) >= stopThresh then
             State.rainStoppedAt = now
             if debugEnabled then
-                Utils.Log(
-                    "🌤️ [RainTracker->CheckRain] Rain dropped below drying threshold — setting rainStoppedAt = " .. now)
+                Utils.Log("[RainTracker->CheckRain] Rain dropped below drying threshold — setting rainStoppedAt = " ..
+                    now)
             end
         end
 
@@ -180,12 +183,12 @@ function RainTracker.CheckRain()
 
         if level == "none" and State.lastRainLevel ~= "none" then
             State.lastRainEndTime = now
-            if debugEnabled then Utils.Log("🌤️ [RainTracker->CheckRain]: Rain ended — delaying drying") end
+            if debugEnabled then Utils.Log("[RainTracker->CheckRain]: Rain ended — delaying drying") end
         end
 
         if level ~= State.lastRainLevel then
             if debugEnabled then
-                Utils.Log(string.format("🌧️ [RainTracker->CheckRain]: Rain level changed: %s → %s (%.2f)",
+                Utils.Log(string.format("[RainTracker->CheckRain]: Rain level changed: %s → %s (%.2f)",
                     State.lastRainLevel, level,
                     rain))
             end
@@ -215,7 +218,7 @@ end
 function RainTracker.TryToDryOut()
     if not State.isInitialized then
         if Config.debugRainTracker then
-            Utils.Log("⏳ [RainTracker->TryToDryOut]: Skipping — system not initialized")
+            Utils.Log("[RainTracker->TryToDryOut]: Skipping — system not initialized")
         end
         return
     end
@@ -225,7 +228,7 @@ function RainTracker.TryToDryOut()
         if not HeatDetection or not HeatDetection.HasNearbyFireSource then
             if Config.debugRainTracker then
                 Utils.Log(
-                    "🔥 [RainTracker->TryToDryOut]: HeatDetection not available or incomplete — skipping drying logic")
+                    "[RainTracker->TryToDryOut]: HeatDetection not available or incomplete — skipping drying logic")
             end
             return
         end
@@ -233,36 +236,27 @@ function RainTracker.TryToDryOut()
         local player = Utils.GetPlayer()
         local soul = player and player.soul
         if not player or not soul then
-            if Config.debugDrying then Utils.Log("❌ [RainTracker->TryToDryOut]: player or soul missing") end
+            if Config.debugDrying then Utils.Log("[RainTracker->TryToDryOut]: player or soul missing") end
             return
         end
 
         local rain = EnvironmentModule.GetRainIntensity() or 0
         local isOutside = not InteriorLogic.IsPlayerInInterior()
         local isIndoors = not isOutside
-        --local wetness = State.wetnessLevel or 0
         local wetness = State.wetnessPercent or 0
         local holdingTorch = Utils.IsTorchEquipped()
 
         -- 🔥 Always check for fire and apply buff
         local nearFire, fireStrength = HeatDetection.HasNearbyFireSource()
         if Config.debugDrying then
-            Utils.Log("🔥 [RainTracker->TryToDryOut]: Fire: near=" ..
+            Utils.Log("[RainTracker->TryToDryOut]: Fire: near=" ..
                 tostring(nearFire) .. ", strength=" .. tostring(fireStrength))
         end
-
-        -- Drying System takes care of the adding drying buffs from now on
-        -- -- 🌡️ Apply visual warmth buff (even if not drying)
-        -- if RainTracker.UpdateDryingBuffs then
-        --     RainTracker.UpdateDryingBuffs(isIndoors, nearFire, soul)
-        -- else
-        --     Utils.Log("💥 [RainTracker->TryToDryOut]: ERROR: RainTracker.UpdateDryingBuffs is nil")
-        -- end
 
         -- ☔ Skip drying if it's raining and you're outside
         if rain >= 0.2 and isOutside then
             if Config.debugDrying then
-                Utils.Log("⛔ [RainTracker->TryToDryOut]: Skipping TryToDryOut — rain outside blocks drying")
+                Utils.Log("[RainTracker->TryToDryOut]: Skipping TryToDryOut — rain outside blocks drying")
             end
             return
         end
@@ -271,7 +265,7 @@ function RainTracker.TryToDryOut()
         -- (Torch, fire, outdoor air can all allow drying to proceed)
 
         if debugEnabled then
-            Utils.Log("💧 [RainTracker->TryToDryOut]: Wetness = " .. tostring(wetness))
+            Utils.Log("[RainTracker->TryToDryOut]: Wetness = " .. tostring(wetness))
         end
         if wetness > 0 then
             local canDry =
@@ -282,12 +276,75 @@ function RainTracker.TryToDryOut()
 
             if canDry then
                 if Config.debugDrying then Utils.Log("💧 [RainTracker->TryToDryOut]: Drying conditions met — proceeding") end
-                SanitasInTenebris.DryingSystem.Tick()
+
+                local stopThresh = (Config.rain and Config.rain.dryingThreshold) or 0.1
+                local delaySec   = (Config.rain and Config.rain.dryingDelayAfterRain) or 10
+                local now        = System.GetCurrTime()
+
+                -- If outside and we don't yet have a stable "rain has stopped" window, skip
+                if isOutside then
+                    if (rain >= stopThresh) then
+                        if Config.debugDrying then
+                            Utils.Log(
+                                "[RainTracker->TryToDryOut]: Raining at/above threshold — skip drying")
+                        end
+                        return
+                    end
+                    if not State.rainStoppedAt or (now - State.rainStoppedAt) < delaySec then
+                        if Config.debugDrying then
+                            Utils.Log("[RainTracker->TryToDryOut]: Waiting for dry window — elapsed=" ..
+                                tostring(State.rainStoppedAt and (now - State.rainStoppedAt) or 0))
+                        end
+                        return
+                    end
+                end
+
+                -- ☔ Skip drying if it's raining and you're outside
+                if rain >= 0.2 and isOutside then
+                    if Config.debugDrying then
+                        Utils.Log("[RainTracker->TryToDryOut]: Skipping TryToDryOut — rain outside blocks drying")
+                    end
+                    return
+                end
+
+                -- ⏱️ Outdoors: require continuous “dry window” after rain stopped
+                if isOutside then
+                    local stopThresh = (Config.rain and Config.rain.dryingThreshold) or 0.1
+                    local delaySec   = (Config.rain and Config.rain.dryingDelayAfterRain) or 10
+                    local now        = System.GetCurrTime()
+
+                    -- Don’t start drying if rain is still at/above the threshold
+                    if rain >= stopThresh then
+                        if Config.debugDrying then
+                            Utils.Log("[RainTracker->TryToDryOut]: Raining at/above threshold — skip drying")
+                        end
+                        return
+                    end
+
+                    -- Require a stable “no rain” period
+                    if not State.rainStoppedAt or (now - State.rainStoppedAt) < delaySec then
+                        if Config.debugDrying then
+                            Utils.Log("⏱[RainTracker->TryToDryOut]: Waiting after-rain delay — elapsed=" ..
+                                tostring(State.rainStoppedAt and (now - State.rainStoppedAt) or 0) ..
+                                " / required=" .. tostring(delaySec))
+                        end
+                        return
+                    end
+                end
+
+                -- ✅ If we got here, it’s okay to dry
+                if debugEnabled then
+                    Utils.Log("💧 [RainTracker->TryToDryOut]: Wetness = " .. tostring(wetness))
+                end
+                local okTick, errTick = pcall(SanitasInTenebris.DryingSystem.Tick)
+                if not okTick then
+                    Utils.Log("[RainTracker->TryToDryOut]: DryingSystem.Tick error: " .. tostring(errTick))
+                end
             else
-                if Config.debugDrying then Utils.Log("🚫 [RainTracker->TryToDryOut]: No drying conditions met — skipping") end
+                if Config.debugDrying then Utils.Log("[RainTracker->TryToDryOut]: No drying conditions met — skipping") end
             end
         else
-            if Config.debugDrying then Utils.Log("💤 [RainTracker->TryToDryOut]: Player is fully dry — no drying needed") end
+            if Config.debugDrying then Utils.Log("[RainTracker->TryToDryOut]: Player is fully dry — no drying needed") end
 
             -- 💧 Remove drying buff if fully dry
             if RainTracker.RemoveDryingBuffIfNeeded then
@@ -297,7 +354,7 @@ function RainTracker.TryToDryOut()
     end)
 
     if not ok then
-        Utils.Log("💥 [RainTracker->TryToDryOut]: INTERNAL error in TryToDryOut(): " .. tostring(err))
+        Utils.Log("[RainTracker->TryToDryOut]: INTERNAL error in TryToDryOut(): " .. tostring(err))
     end
 end
 

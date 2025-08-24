@@ -111,20 +111,26 @@ function Utils.IsOverheadBlocked(maxDistance)
 end
 
 function Utils.SafePollRegister(name, interval, func, repeatable)
-    Utils.Log("👁️ [SafePoll] PollingManager = " .. tostring(PollingManager))
-    Utils.Log("👁️ [SafePoll] PollingManager.Register = " .. tostring(PollingManager and PollingManager.Register))
+    local dbg = Config.debugPolling == true
+    if dbg then Utils.Log("[SafePoll] PollingManager = " .. tostring(PollingManager)) end
+    if dbg then
+        Utils.Log("[SafePoll] PollingManager.Register = " ..
+            tostring(PollingManager and PollingManager.Register))
+    end
     if type(name) ~= "string" then
-        Utils.Log("❌ [SafePoll] Invalid name: " .. tostring(name))
+        Utils.Log("[SafePoll] Invalid name: " .. tostring(name))
         return
     end
 
     if type(func) ~= "function" then
-        Utils.Log("❌ [SafePoll] Invalid function for poll '" .. name .. "': got " .. tostring(func))
+        Utils.Log("[SafePoll] Invalid function for poll '" .. name .. "': got " .. tostring(func))
         return
     end
 
-    Utils.Log("🛠️ [SafePoll] Registering: " ..
-        name .. " (interval=" .. tostring(interval) .. ", repeat=" .. tostring(repeatable) .. ")")
+    if dbg then
+        Utils.Log("[SafePoll] Registering: " ..
+            name .. " (interval=" .. tostring(interval) .. ", repeat=" .. tostring(repeatable) .. ")")
+    end
     PollingManager.Register(name, interval, func, repeatable)
 end
 

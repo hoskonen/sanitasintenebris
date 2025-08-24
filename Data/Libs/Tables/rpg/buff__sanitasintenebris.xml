@@ -12,7 +12,7 @@
 		<!-- Buff Wetness Rain - Mild -->
 		<buff buff_class_id="4" buff_desc="buff_wetness_rain_mild_desc" buff_exclusivity_id="1"
 			buff_id="6c348be1-24f1-44e4-899f-d5f5fd59395e" buff_lifetime_id="0"
-			buff_name="buff_wetness_rain_mild" buff_params="" buff_ui_name="buff_wetness_rain_mild"
+			buff_name="buff_wetness_rain_mild" buff_params="noi*1.2" buff_ui_name="buff_wetness_rain_mild"
 			buff_ui_type_id="2" buff_ui_visibility_id="3" icon_id="buff_wetness_rain_mild"
 			implementation="Cpp:Constant" is_persistent="true"
 			slot_buff_ui_name="buff_wetness_rain_mild" />
