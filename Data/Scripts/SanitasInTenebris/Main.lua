@@ -168,7 +168,6 @@ end
 
 function SanitasInTenebris.IndoorPoll()
     -- no direct Script.SetTimer here; SafeIndoorPoll handles re-arm
-
     local player = Utils.GetPlayer()
     local soul = player and player.soul
     if not soul then
@@ -225,6 +224,11 @@ function SanitasInTenebris.IndoorPoll()
         if debugEnabled then
             Utils.Log("[Main->IndoorPoll]: Indoors state changed → " .. (isIndoors and "Indoors" or "Outdoors"))
         end
+    end
+
+    -- Guarantee Sheltered is applied while indoors even if no transition was detected
+    if isIndoors and not State.shelteredActive then
+        BuffLogic.ApplyShelteredBuff(soul)
     end
 
     -- Light work while indoors (optional)
@@ -352,12 +356,24 @@ function SanitasInTenebris.CheckReEnterInterior()
         end
 
         State.pollingSuspended = true
-        SanitasInTenebris.ScheduleExitInterior() -- ← arm exit checker immediately
+
+        -- NEW: apply Sheltered immediately (idempotent on engine side)
+        local player           = Utils.GetPlayer()
+        local soul             = player and player.soul
+        if soul then
+            BuffLogic.ApplyShelteredBuff(soul)
+        end
+
+        -- Arm exit checker so we can resume cleanly when stepping back outside
+        SanitasInTenebris.ScheduleExitInterior()
+
+        -- Kick first indoor tick
         SanitasInTenebris.IndoorPoll()
 
         -- Update transition state
         State.wasIndoors = true
     end
+
 
     -- Continue checking periodically
     Script.SetTimer(3000, SanitasInTenebris.CheckReEnterInterior)
