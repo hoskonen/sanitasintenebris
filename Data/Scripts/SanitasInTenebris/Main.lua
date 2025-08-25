@@ -91,10 +91,13 @@ function SanitasInTenebris.OutdoorPoll()
 
     -- Query interior ONCE and reuse the result
     local isInterior = InteriorLogic.IsPlayerInInterior()
-
     if isInterior then
         if not State._indoorInitDone then
             State.pollingSuspended = true
+
+            -- Arm exit detector immediately so we can resume when the player walks out
+            SanitasInTenebris.ScheduleExitInterior()
+
             local player = Utils.GetPlayer()
             local soul = player and player.soul
             if player and soul then
@@ -349,6 +352,7 @@ function SanitasInTenebris.CheckReEnterInterior()
         end
 
         State.pollingSuspended = true
+        SanitasInTenebris.ScheduleExitInterior() -- ← arm exit checker immediately
         SanitasInTenebris.IndoorPoll()
 
         -- Update transition state

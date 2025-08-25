@@ -120,7 +120,11 @@ function RainTracker.TryStartDryingSystem()
 
     local wetness = State.wetnessPercent or 0
     local isOutside = not InteriorLogic.IsPlayerInInterior()
-    local rain = EnvironmentModule.GetRainIntensity() or 0
+    local rain = 0
+    local okRain, rv = pcall(function()
+        return (EnvironmentModule and EnvironmentModule.GetRainIntensity and EnvironmentModule.GetRainIntensity()) or 0
+    end)
+    if okRain and type(rv) == "number" then rain = rv end
 
     -- Drying only applies if we're wet
     if wetness <= 0 then return end
@@ -143,7 +147,12 @@ function RainTracker.CheckRain()
             return
         end
 
-        local rain = EnvironmentModule.GetRainIntensity() or 0
+        local rain = 0
+        local okRain, rv = pcall(function()
+            return (EnvironmentModule and EnvironmentModule.GetRainIntensity and EnvironmentModule.GetRainIntensity()) or
+                0
+        end)
+        if okRain and type(rv) == "number" then rain = rv end
         local level = (rain >= 0.6 and "heavy") or (rain >= 0.2 and "light") or "none"
         local isOutside = not InteriorLogic.IsPlayerInInterior()
         local now = System.GetCurrTime()
@@ -240,7 +249,13 @@ function RainTracker.TryToDryOut()
             return
         end
 
-        local rain = EnvironmentModule.GetRainIntensity() or 0
+        local rain = 0
+        local okRain, rv = pcall(function()
+            return (EnvironmentModule and EnvironmentModule.GetRainIntensity and EnvironmentModule.GetRainIntensity()) or
+                0
+        end)
+
+        if okRain and type(rv) == "number" then rain = rv end
         local isOutside = not InteriorLogic.IsPlayerInInterior()
         local isIndoors = not isOutside
         local wetness = State.wetnessPercent or 0
@@ -307,7 +322,7 @@ function RainTracker.TryToDryOut()
                     return
                 end
 
-                -- ⏱️ Outdoors: require continuous “dry window” after rain stopped
+                -- ⏱️ Outdoors: require continuous "dry window" after rain stopped
                 if isOutside then
                     local stopThresh = (Config.rain and Config.rain.dryingThreshold) or 0.1
                     local delaySec   = (Config.rain and Config.rain.dryingDelayAfterRain) or 10

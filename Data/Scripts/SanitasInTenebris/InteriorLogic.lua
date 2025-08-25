@@ -46,7 +46,6 @@ function InteriorLogic.HandleInteriorState(player, soul)
     State.pollingSuspended = true
 
     SanitasInTenebris.ScheduleExitInterior()
-    --Script.SetTimerForFunction(Config.pollingInterval, "SanitasInTenebris.IndoorPoll")
     SanitasInTenebris.ScheduleIndoorPoll()
 
     BuffLogic.ApplyShelteredBuff(soul)
