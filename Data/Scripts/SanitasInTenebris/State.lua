@@ -56,6 +56,3 @@ end
 -- 🌍 Global export
 SanitasInTenebris       = SanitasInTenebris or {}
 SanitasInTenebris.State = State
-
--- 🧪 Final confirmation
-Utils.Log("🌿 Init: State.shelteredActive = " .. tostring(State.shelteredActive))

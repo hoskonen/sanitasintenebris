@@ -304,17 +304,21 @@ function SanitasInTenebris.OnGameplayStarted(actionName, eventName, argTable)
     end
 
     local isIndoors = InteriorLogic.IsPlayerInInterior()
-    Utils.Log("📍 [Main->OnGameplayStarted]: Interior state at load: isIndoors = " .. tostring(isIndoors))
+    if Config.mainDebug then
+        Utils.Log("📍 [Main->OnGameplayStarted]: Interior state at load: isIndoors = " .. tostring(isIndoors))
+    end
 
     if isIndoors then
-        Utils.Log("[Main->OnGameplayStarted]: Player is indoors at load — applying interior logic")
+        if Config.mainDebug then
+            Utils.Log("[Main->OnGameplayStarted]: Player is indoors at load — applying interior logic")
+        end
         InteriorLogic.HandleInteriorState(player, soul)
         SanitasInTenebris.StopPoll()
     else
-        Utils.Log("[Main->OnGameplayStarted]: Player is outdoors at load — enabling polling systems")
+        if Config.mainDebug then
+            Utils.Log("[Main->OnGameplayStarted]: Player is outdoors at load — enabling polling systems")
+        end
 
-        --SanitasInTenebris.RainCleans.Start()
-        --SanitasInTenebris.DryingSystem.Start()
         SanitasInTenebris.RestartAfterLoad()
 
         -- Delay CheckReEnterInterior

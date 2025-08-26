@@ -60,7 +60,7 @@ end
 function SanitasInTenebris.DryingSystem.Tick()
     return SafeCall("tick", function()
         -- Unconditional breadcrumb so we know we actually entered
-        Utils.Log("[DryingSystem->Tick]: Top-level entry")
+        if debugEnabled then Utils.Log("[DryingSystem->Tick]: Top-level entry") end
 
         -- Sequence:
         -- 1. ✅ Check wetness and rainStoppedAt — skip if invalid

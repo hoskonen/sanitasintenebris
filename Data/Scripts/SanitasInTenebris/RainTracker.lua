@@ -6,12 +6,32 @@ RainTracker = {}
 local debugEnabled = Config.debugRainTracker == true
 local logPrefix = "4$ [Sanitas] 🌧"
 
--- Thresholds for applying wetness buffs
-local exposureThresholds = {
-    { seconds = Config.rainExposureThresholds.mild,     buff = Config.buffs.buff_wetness_rain_mild },
-    { seconds = Config.rainExposureThresholds.moderate, buff = Config.buffs.buff_wetness_rain_moderate },
-    { seconds = Config.rainExposureThresholds.severe,   buff = Config.buffs.buff_wetness_rain_severe },
-}
+local function RLog(msg)
+    if Config and Config.debugRainTracker == true then
+        Utils.Log(tostring(msg))
+    end
+end
+
+-- Local throttled logger with safe fallback (no Utils dependency required)
+RainTracker._rt = RainTracker._rt or {}
+local function RThrot(key, intervalSec, msg)
+    -- respect the rain tracker flag
+    if not (Config and Config.debugRainTracker == true) then return end
+
+    -- prefer Utils.ThrottledCh if available
+    if Utils and type(Utils.ThrottledCh) == "function" then
+        Utils.ThrottledCh("rain", key, intervalSec, tostring(msg))
+        return
+    end
+
+    -- fallback: simple per-key throttle
+    local now = System.GetCurrTime()
+    local nextAt = RainTracker._rt[key]
+    if not nextAt or now >= nextAt then
+        Utils.Log(tostring(msg))
+        RainTracker._rt[key] = now + (intervalSec or 5)
+    end
+end
 
 function RainTracker.RefreshWetnessBuffTier()
     if not State.isInitialized then
@@ -94,7 +114,8 @@ function RainTracker.RefreshWetnessBuffTier()
 
     -- ✅ Apply buff if tier changed
     if tier ~= previous then
-        Utils.Log("💧 [RainTracker]: Wetness tier changed: " .. tostring(previous) .. " → " .. tostring(tier))
+        RLog("💧 [RainTracker]: Wetness tier changed: " .. tostring(previous) .. " → " .. tostring(tier))
+
         BuffLogic.RemoveWetnessBuffs()
         if tier == 1 then
             soul:AddBuff(Config.buffs.buff_wetness_rain_mild)
@@ -132,14 +153,14 @@ function RainTracker.TryStartDryingSystem()
     local canDry = (not isOutside) or (isOutside and rain == 0)
 
     if canDry and not State.warmingActive then
-        Utils.Log("🌬️ [RainTracker->TryStartDryingSystem]: Conditions OK — starting drying system")
+        RLog("🌬️ [RainTracker->TryStartDryingSystem]: Conditions OK — starting drying system")
         State.warmingActive = true
         Script.SetTimer(Config.drying.tickInterval or 5000, SanitasInTenebris.DryingSystem.Tick)
     end
 end
 
 function RainTracker.CheckRain()
-    if debugEnabled then Utils.Log("📡 [RainTracker->CheckRain]: Running...") end
+    RThrot("checkrain_running", 5, "📡 [RainTracker->CheckRain]: Running...")
 
     local ok, err = pcall(function()
         if State.pollingSuspended then
@@ -227,7 +248,7 @@ end
 function RainTracker.TryToDryOut()
     if not State.isInitialized then
         if Config.debugRainTracker then
-            Utils.Log("[RainTracker->TryToDryOut]: Skipping — system not initialized")
+            RThrot("trytodryout_notinit", 10, "[RainTracker->TryToDryOut]: Skipping — system not initialized")
         end
         return
     end
@@ -279,8 +300,12 @@ function RainTracker.TryToDryOut()
         -- 🚫 Skip drying only if player is fully dry and not in any drying condition
         -- (Torch, fire, outdoor air can all allow drying to proceed)
 
-        if debugEnabled then
-            Utils.Log("[RainTracker->TryToDryOut]: Wetness = " .. tostring(wetness))
+        if Config and Config.debugRainTracker == true then
+            if (wetness or 0) > 0 then
+                RLog(string.format("[RainTracker->TryToDryOut]: Wetness = %.2f", wetness))
+            else
+                RThrot("trytodryout_wet0", 30, "[RainTracker->TryToDryOut]: Wetness = 0")
+            end
         end
         if wetness > 0 then
             local canDry =
