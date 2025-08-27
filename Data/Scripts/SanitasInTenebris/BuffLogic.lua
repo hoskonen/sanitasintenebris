@@ -2,7 +2,12 @@
 System.LogAlways("4$ [Sanitas] ✅ Loaded: BuffLogic")
 
 BuffLogic = {}
-local debugEnabled = Config.debugBuffLogic == true
+
+local function BLog(msg)
+    if Config and Config.debugBuffLogic == true then
+        Utils.Log(tostring(msg))
+    end
+end
 
 function BuffLogic.ApplyShelteredBuff(soul)
     if not soul then
@@ -34,7 +39,7 @@ function BuffLogic.ApplyShelteredBuff(soul)
 
     local added = soul:AddBuff(Config.buffs.sheltered)
     if Config.debugBuffLogic then
-        Utils.Log("[BuffLogic->ApplyShelteredBuff]: Attempted to add sheltered buff: " .. tostring(added))
+        BLog("[BuffLogic->ApplyShelteredBuff]: Attempted to add sheltered buff: " .. tostring(soul))
     end
 
     if added then
@@ -48,22 +53,25 @@ function BuffLogic.ApplyShelteredBuff(soul)
 end
 
 function BuffLogic.RemoveShelteredBuff(player, soul)
+    soul = soul or (player and player.soul)
     if not soul then
-        Utils.Log("[BuffLogic->RemoveShelteredBuff]: RemoveShelteredBuff: soul is nil")
+        Utils.Log("[BuffLogic->RemoveShelteredBuff]: soul is nil")
         return
     end
 
-    local removed = soul:RemoveAllBuffsByGuid(Config.buffs.sheltered)
-    if Config.debugBuffLogic then
-        Utils.Log("[BuffLogic->RemoveShelteredBuff]: RemoveShelteredBuff: Buff removed? " .. tostring(removed))
+    local guid = Config and Config.buffs and Config.buffs.sheltered
+    if not guid then
+        Utils.Log("[BuffLogic->RemoveShelteredBuff]: missing sheltered GUID in Config")
+        return
     end
 
-    if removed then
-        State.shelteredActive = false
-        if debugEnabled then
-            Utils.Log("[BuffLogic->RemoveShelteredBuff]: Guard: State.shelteredActive set to false")
-        end
-    end
+    -- Engine usually returns 0/1; guard with 0 if nil
+    local removed = soul:RemoveAllBuffsByGuid(guid) or 0
+    BLog("[BuffLogic->RemoveShelteredBuff]: Buff removed? " .. tostring(removed))
+
+    -- Sync state unconditionally so we never get stuck “true”
+    State.shelteredActive = false
+    BLog("[BuffLogic->RemoveShelteredBuff]: Guard: State.shelteredActive set to false")
 end
 
 function BuffLogic.RemoveWetnessBuffs()
