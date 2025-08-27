@@ -12,6 +12,25 @@ if debugEnabled then
     Utils.Log("[Main] Main.lua loaded — system initialized")
 end
 
+SanitasInTenebris._rt = SanitasInTenebris._rt or {}
+local function IThrot(key, intervalSec, msg)
+    local on = Config and
+    ((Config.debugIndoorPolling == true) or (Config.debugPolling == true) or (Config.indoorDebug == true))
+    if not on then return end
+    -- Prefer Utils.ThrottledCh if available
+    if Utils and type(Utils.ThrottledCh) == "function" then
+        Utils.ThrottledCh("indoor", key, intervalSec, msg)
+        return
+    end
+    -- Fallback: local per-key throttle
+    local now = System.GetCurrTime()
+    local nextAt = SanitasInTenebris._rt[key]
+    if not nextAt or now >= nextAt then
+        Utils.Log(msg)
+        SanitasInTenebris._rt[key] = now + (intervalSec or 5)
+    end
+end
+
 function SanitasInTenebris.StopPoll()
     if debugEnabled then Utils.Log("[Main->StopPoll]: StopPoll() called") end
     PollingManager.StopAll()
@@ -184,7 +203,9 @@ function SanitasInTenebris.IndoorPoll()
     end
     State.lastIndoorPollSuspended = true
 
-    if debugEnabled then Utils.Log("[Main->IndoorPoll]: IndoorPoll tick") end
+    if Config and Config.indoorDebug == true then
+        IThrot("indoor_tick", 5, "[Main->IndoorPoll]: IndoorPoll tick")
+    end
 
     local isIndoors = InteriorLogic.IsPlayerInInterior()
 

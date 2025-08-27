@@ -11,6 +11,28 @@ local HeatDetection            = HeatDetection or (SanitasInTenebris and Sanitas
 
 local debugEnabled             = (Config and Config.debugDrying) == true
 
+-- Debug gate (piggybacks on global polling if you want)
+local function DDbg()
+    return Config and ((Config.debugDrying == true) or (Config.debugPolling == true))
+end
+
+-- Local throttle so we don't depend on Utils.ThrottledCh load order
+SanitasInTenebris._dry_rt = SanitasInTenebris._dry_rt or {}
+local function DThrot(key, intervalSec, msg)
+    if not DDbg() then return end
+    if Utils and type(Utils.ThrottledCh) == "function" then
+        Utils.ThrottledCh("drying", key, intervalSec, msg)
+        return
+    end
+    local now = System.GetCurrTime()
+    local t = SanitasInTenebris._dry_rt
+    local nextAt = t[key]
+    if not nextAt or now >= nextAt then
+        Utils.Log(msg)
+        t[key] = now + (intervalSec or 3)
+    end
+end
+
 local function SafeCall(where, fn, ...)
     local ok, res = pcall(fn, ...)
     if not ok then
@@ -203,7 +225,10 @@ function SanitasInTenebris.DryingSystem.Tick()
             local dt = _tickIntervalSec()
             local amount = math.min(wetness, dryingRate * dt)
             if debugEnabled then
-                Utils.Log(string.format("[DryingSystem->Tick]: rate=%.3f, dt=%.2f, amount=%.3f", dryingRate, dt, amount))
+                DThrot("dry_rate", 3, string.format(
+                    "[DryingSystem->Tick]: rate=%.3f, dt=%.2f, amount=%.3f (wet=%.2f%%)",
+                    baseRate, dt or 1.0, amount, (State.wetnessPercent or 0)
+                ))
             end
 
             State.wetnessPercent = math.max(0, wetness - amount)
@@ -239,9 +264,6 @@ end
 
 function SanitasInTenebris.DryingSystem.CalculateDryingMultiplier(isIndoors, isOutside, nearFire)
     local m = Config.dryingMultiplier or {}
-
-    -- TODO: investigate later isCovered
-    --local isCovered = IndoorDetection.IsCoveredArea()
     local isCovered = false -- 🔧 Temporarily disabled to avoid false positives
     local holdingTorch = Utils.IsTorchEquipped()
     local multiplier = 0

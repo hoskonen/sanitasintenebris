@@ -13,12 +13,12 @@ Config = {
     enableLogOnce = false,
     mainDebug = false,
     debugPolling = false,
+    debugIndoorPolling = true, --indoor poll tick + related
     debugRainTracker = false,
     debugBuffLogic = true,
     debugRoofDetection = false,
-    fireDebug = true,
-    indoorDebug = false,
-    interiorLogicDebug = false,
+    fireDebug = false,
+    interiorLogicDebug = true,
     debugDrying = false,
     rainCleansDebug = false,
     --

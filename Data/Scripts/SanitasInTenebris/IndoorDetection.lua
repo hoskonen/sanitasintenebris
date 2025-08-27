@@ -1,8 +1,16 @@
 System.LogAlways("4$ [Sanitas] ✅ Loaded: IndoorDetection")
 
-IndoorDetection = {}
+SanitasInTenebris.IndoorDetection = SanitasInTenebris.IndoorDetection or {}
+local IndoorDetection = SanitasInTenebris.IndoorDetection
 
-local indoorDebug = true
+-- Debug gate for indoor detection logs
+local function IndoorDbg()
+    return Config and (
+        (Config.debugIndoorPolling == true) -- new flag
+        or (Config.debugPolling == true)    -- piggyback on global polling
+        or (Config.interiorLogicDebug == true)
+    )
+end
 
 local function GetDistance(pos1, pos2)
     if not pos1 or not pos2 then return math.huge end
@@ -13,11 +21,11 @@ local function GetDistance(pos1, pos2)
 end
 
 function IndoorDetection.Check()
-    if indoorDebug then Utils.Log("[IndoorDetection->Check]: IndoorDetection.Check() started") end
+    if IndoorDbg() then Utils.Log("[IndoorDetection->Check]: IndoorDetection.Check() started") end
 
     local player = Utils.GetPlayer()
     if not player then
-        if indoorDebug then Utils.Log("[IndoorDetection->Check]: Utils.GetPlayer() returned nil") end
+        if IndoorDbg() then Utils.Log("[IndoorDetection->Check]: Utils.GetPlayer() returned nil") end
         return {
             isIndoors = false,
             source = nil,
@@ -28,7 +36,7 @@ function IndoorDetection.Check()
 
     local pos = player:GetWorldPos() or player:GetPos()
     if not pos then
-        if indoorDebug then Utils.Log("[IndoorDetection->Check]: Could not get player position") end
+        if IndoorDbg() then Utils.Log("[IndoorDetection->Check]: Could not get player position") end
         return {
             isIndoors = false,
             source = nil,
@@ -37,7 +45,7 @@ function IndoorDetection.Check()
         }
     end
 
-    if indoorDebug then
+    if IndoorDbg() then
         Utils.Log(string.format("[IndoorDetection->Check]: Player position: x=%.2f y=%.2f z=%.2f", pos.x, pos.y, pos.z))
     end
 
@@ -61,7 +69,7 @@ function IndoorDetection.Check()
     if bedTrigger then
         local linkedBed = bedTrigger:GetLinkedSmartObject()
         if linkedBed and linkedBed.Properties and linkedBed.Properties.bOwnedByHome then
-            if indoorDebug then
+            if IndoorDbg() then
                 Utils.Log("🛏️ Indoor bed detected: " .. tostring(linkedBed:GetName()))
             end
             foundBed = true
@@ -69,9 +77,9 @@ function IndoorDetection.Check()
             table.insert(extraSignals, "bed")
         end
     else
-        if indoorDebug then Utils.Log("[IndoorDetection->Check]: No BedTrigger found nearby.") end
+        if IndoorDbg() then Utils.Log("[IndoorDetection->Check]: No BedTrigger found nearby.") end
     end
-    if indoorDebug then Utils.Log("🛏️ DetectBed result: " .. tostring(foundBed)) end
+    if IndoorDbg() then Utils.Log("🛏️ DetectBed result: " .. tostring(foundBed)) end
 
     local entities = System.GetEntitiesInSphere(pos, doorRadius)
     for _, entity in ipairs(entities) do
@@ -122,7 +130,7 @@ function IndoorDetection.Check()
                         if dist <= 2.5 then
                             confidence = confidence + 0.2
                             table.insert(extraSignals, "ambience:interior")
-                            if indoorDebug then
+                            if IndoorDbg() then
                                 Utils.Log("[IndoorDetection->Check]: Interior Ambience Detected: " ..
                                     name .. " @ " .. string.format("%.2f", dist) .. "m")
                             end
@@ -136,7 +144,7 @@ function IndoorDetection.Check()
     if closestDoor and closestDistance <= SanitasInTenebris.config.maxValidDoorDistance then
         confidence = confidence + 0.2
         table.insert(extraSignals, "door")
-        if indoorDebug then
+        if IndoorDbg() then
             Utils.Log("[IndoorDetection->Check]: Door detected: " .. tostring(closestDoor:GetName())
                 .. " @ " .. string.format("%.2f", closestDistance) .. "m")
         end
@@ -173,7 +181,7 @@ function IndoorDetection.Check()
     confidence = math.min(confidence, 1.0)
     local isIndoors = (confidence >= 0.7)
 
-    if indoorDebug then
+    if IndoorDbg() then
         Utils.Log("[IndoorDetection->Check]: Confidence score: " .. string.format("%.2f", confidence))
     end
 
@@ -206,26 +214,6 @@ function IndoorDetection.IsInteriorMarker(entity)
     return name:find("sweeping") or name:find("cooking") or name:find("dogbehavior")
 end
 
-function IndoorDetection.IsCoveredArea(radius)
-    local player = Utils.GetPlayer()
-    if not player then return false end
-
-    local pos = player:GetWorldPos()
-    if not pos then return false end
-
-    local entities = System.GetEntitiesInSphere(pos, radius or 4.0)
-    for _, e in ipairs(entities) do
-        local name = string.lower(e:GetName() or "")
-        local prefab = (type(e.GetPrefabName) == "function") and string.lower(e:GetPrefabName()) or ""
-
-        if name:find("tent") or prefab:find("tent") or name:find("canopy") or prefab:find("canopy") then
-            return true
-        end
-    end
-
-    return false
-end
-
 function IndoorDetection.CheckForIndoorHeat()
     local player = Utils.GetPlayer()
     if not player then
@@ -242,14 +230,20 @@ function IndoorDetection.CheckForIndoorHeat()
     if now - State.lastIndoorHeatCheck < 4 then return end
     State.lastIndoorHeatCheck = now
 
-    Utils.Log("[IndoorDetection->CheckForIndoorHeat]: Checking for indoor fire source...")
+    if IndoorDbg() then
+        Utils.Log("[IndoorDetection->CheckForIndoorHeat]: Checking for indoor fire source...")
+    end
 
     local nearFire, strength = HeatDetection.HasNearbyFireSource(Config.fireDetectionRadius or 2.0)
     if nearFire then
-        Utils.Log("[IndoorDetection->CheckForIndoorHeat]: Indoor fire detected: strength = " .. tostring(strength))
+        if IndoorDbg() then
+            Utils.Log("[IndoorDetection->CheckForIndoorHeat]: Indoor fire detected: strength = " .. tostring(strength))
+        end
         BuffLogic.ApplyWarmingBuff(strength)
     else
-        Utils.Log("[IndoorDetection->CheckForIndoorHeat]: No indoor heat source found")
+        if IndoorDbg() then
+            Utils.Log("[IndoorDetection->CheckForIndoorHeat]: No indoor heat source found")
+        end
         BuffLogic.RemoveWarmingBuff()
     end
 end

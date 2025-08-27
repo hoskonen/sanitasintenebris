@@ -1,12 +1,37 @@
 -- RainCleans.lua
 System.LogAlways("4$ [Sanitas] ✅ Loaded: RainCleans")
-SanitasInTenebris.RainCleans = {}
+SanitasInTenebris.RainCleans = SanitasInTenebris.RainCleans or {}
+local RC = SanitasInTenebris.RainCleans
+
+local function RCEnabled()
+    return Config and (Config.rainCleansDebug == true or Config.debugPolling == true)
+end
+
+-- local throttle so we don’t depend on Utils load order
+SanitasInTenebris._rc_rt = SanitasInTenebris._rc_rt or {}
+local function RCThrot(key, intervalSec, msg)
+    if not RCEnabled() then return end
+    if Utils and type(Utils.ThrottledCh) == "function" then
+        Utils.ThrottledCh("rain", key, intervalSec, msg)
+        return
+    end
+    local now = System.GetCurrTime()
+    local t = SanitasInTenebris._rc_rt
+    local nextAt = t[key]
+    if not nextAt or now >= nextAt then
+        System.LogAlways(tostring(msg))
+        t[key] = now + (intervalSec or 5)
+    end
+end
+
 
 local progress = 0.0
 local henryBodyCleanProgress = 0.0
 
 function SanitasInTenebris.RainCleans.Start()
-    System.LogAlways("4$ [Sanitas->Start]: RainCleans system started.")
+    if RCEnabled() then
+        System.LogAlways("4$ [Sanitas->Start]: RainCleans system started.")
+    end
     Script.SetTimer(Config.rainCleans.TickInterval, SanitasInTenebris.RainCleans.Tick)
 end
 
@@ -35,7 +60,7 @@ function SanitasInTenebris.RainCleans.Tick()
         progress = progress + gain
 
         if shouldLog then
-            System.LogAlways(string.format(
+            RCThrot("rc_tick", 5, string.format(
                 "%s Rain Cleaning Tick — rain=%.2f → +%.2f (progress=%.2f)",
                 logPrefix, rain, gain, progress))
         end
@@ -94,7 +119,7 @@ function SanitasInTenebris.RainCleans.Tick()
         State.idleRainCleansLog = false
     elseif shouldLog and not State.idleRainCleansLog then
         -- Suppress duplicate idle logs
-        System.LogAlways(logPrefix .. " Rain stopped / indoors but no progress to apply")
+        RCThrot("rc_idle", 10, logPrefix .. " Rain stopped / indoors but no progress to apply")
         State.idleRainCleansLog = true
     end
 end

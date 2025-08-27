@@ -7,12 +7,18 @@ _G["HeatDetection"] = SanitasInTenebris.HeatDetection
 
 local debugEnabled = Config.fireDebug == true
 
+local function HLog(msg)
+    if Config and Config.fireDebug == true then
+        Utils.Log(tostring(msg))
+    end
+end
+
 -- Returns: nearFire (bool), fireStrength (float)
 -- Strength can be used to differentiate strong forge vs weak campfire
 function HeatDetection.HasNearbyFireSource(radius)
     radius = radius or 3.0
     if debugEnabled then
-        Utils.Log("[HeatDetection->HasNearbyFireSource]: Entered HasNearbyFireSource with radius=" .. tostring(radius))
+        HLog(("[HeatDetection->HasNearbyFireSource]: radius=%.2f"):format(radius))
     end
 
     local player = Utils.GetPlayer()
@@ -28,8 +34,8 @@ function HeatDetection.HasNearbyFireSource(radius)
     end
 
     if debugEnabled then
-        Utils.Log("[HeatDetection->HasNearbyFireSource]: Player pos: x=" ..
-            tostring(pos.x) .. ", y=" .. tostring(pos.y) .. ", z=" .. tostring(pos.z))
+        HLog(("[HeatDetection->HasNearbyFireSource]: pos=(%.2f, %.2f, %.2f)")
+            :format(pos.x or 0, pos.y or 0, pos.z or 0))
     end
 
     local entities = System.GetEntitiesInSphere(pos, radius)
@@ -39,7 +45,7 @@ function HeatDetection.HasNearbyFireSource(radius)
     end
 
     if debugEnabled then
-        Utils.Log("[Heat Detection]: 🔎 Scanning " .. tostring(#entities) .. " entities for fire sources")
+        HLog(("🔎 [HeatDetection]: scanning %d entities"):format(#entities))
     end
 
     local hasSmartFire = false
@@ -77,7 +83,7 @@ function HeatDetection.HasNearbyFireSource(radius)
             hasSmartFire = true
             bestStrength = strength
             if debugEnabled then
-                Utils.Log("Matched fire class: " .. lname .. " [" .. lclass .. "] → " .. tostring(strength))
+                HLog(("🔥 match class: %s [%s] → %.2f"):format(lname, lclass, strength))
             end
         else
             for keyword, s in pairs(Config.fireSourceClasses) do
@@ -85,8 +91,7 @@ function HeatDetection.HasNearbyFireSource(radius)
                     hasSmartFire = true
                     bestStrength = s
                     if debugEnabled then
-                        Utils.Log("[HeatDetection->HasNearbyFireSource]: Matched fire by name: " ..
-                            lname .. " [" .. lclass .. "] → " .. tostring(s))
+                        HLog(("🔥 match name: %s [%s] → %.2f"):format(lname, lclass, s))
                     end
                     break
                 end
@@ -95,18 +100,16 @@ function HeatDetection.HasNearbyFireSource(radius)
     end
 
     if hasSmartFire and hasUnlitFire then
-        if debugEnabled then
-            Utils.Log("[HeatDetection->HasNearbyFireSource]: Fire downgraded due to nearby unlit prefab")
-        end
+        HLog("[HeatDetection->HasNearbyFireSource]: fire found but downgraded (unlit nearby) → strength=0.20")
         return true, 0.2
     elseif hasSmartFire then
+        HLog(("[HeatDetection->HasNearbyFireSource]: fire nearby → strength=%.2f"):format(bestStrength))
         return true, bestStrength
     elseif hasUnlitFire then
+        HLog("[HeatDetection->HasNearbyFireSource]: unlit fire nearby → strength=0.20")
         return true, 0.2
     else
-        if debugEnabled then
-            Utils.Log("[HeatDetection->HasNearbyFireSource]: No fire source found nearby")
-        end
+        HLog("[HeatDetection->HasNearbyFireSource]: no fire nearby")
         return false, 0.0
     end
 end
