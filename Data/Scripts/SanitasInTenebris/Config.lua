@@ -17,7 +17,7 @@ Config = {
     debugRainTracker = true,
     debugBuffLogic = true,
     debugRoofDetection = false,
-    fireDebug = false,
+    fireDebug = true,
     interiorLogicDebug = true,
     debugDrying = true,
     rainCleansDebug = false,
@@ -69,16 +69,8 @@ Config = {
     },
     fireSourceClasses = {
         fireplacesmartobject = 0.9,
-        -- fireplacecamp = 1.0,
-        -- fireplacehome = 0.9,
-        -- fireplacewood = 0.8,
-        -- stokefurnace = 1.2,
-        -- pigroast = 0.6,
-        -- cookingherbs = 0.5,
-        -- cookingingredients = 0.5,
-        -- healingbench = 0.3,
-        -- miner_roasting = 1.0,
-        -- butchersmokehouse = 0.7,
+        -- smith/forge coverage (name- or class-contains, case-insensitive)
+        forge                = 1.2, -- hits "light_forge", "coal_forge2", etc.
     },
     -- Roof ray settings
     roofRayStartHeight = 0.5,  -- meters above player head to start the ray
