@@ -12,19 +12,20 @@ Config = {
     -- MAIN DEBUG FLAGS
     enableLogOnce = false,
     mainDebug = false,
-    debugPolling = false,
+    debugPolling = true,
     debugIndoorPolling = true, --indoor poll tick + related
-    debugRainTracker = false,
+    debugRainTracker = true,
     debugBuffLogic = true,
     debugRoofDetection = false,
     fireDebug = false,
     interiorLogicDebug = true,
-    debugDrying = false,
+    debugDrying = true,
     rainCleansDebug = false,
     --
     drying = {
         tickInterval = 2000,
         startDelay = 3000,
+        buffHoldSeconds = 4
     },
     dryingMultiplier = {
         indoorNoFire = 0.001,  -- 🏠 Drying rate indoors without any fire

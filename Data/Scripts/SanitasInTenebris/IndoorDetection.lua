@@ -209,11 +209,6 @@ function IndoorDetection.IsFurniture(entity)
     return name:find("bench") or name:find("table") or name:find("chair")
 end
 
-function IndoorDetection.IsInteriorMarker(entity)
-    local name = string.lower(entity:GetName() or "")
-    return name:find("sweeping") or name:find("cooking") or name:find("dogbehavior")
-end
-
 function IndoorDetection.CheckForIndoorHeat()
     local player = Utils.GetPlayer()
     if not player then

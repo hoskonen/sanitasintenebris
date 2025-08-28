@@ -178,6 +178,36 @@ function RainTracker.CheckRain()
         local isOutside = not InteriorLogic.IsPlayerInInterior()
         local now = System.GetCurrTime()
 
+        -- Skip rain wetness when roofed but outdoors
+        local isIndoors = InteriorLogic and InteriorLogic.IsPlayerInInterior and InteriorLogic.IsPlayerInInterior()
+        local roofed = false
+
+        if not isIndoors then
+            -- Prefer the value computed by OutdoorPoll (cheap)
+            roofed = (State and State.roofedOutside) or false
+
+            -- Fallback to direct ray if we don't have a cached state
+            if not roofed and RoofDetection and RoofDetection.IsUnderRoof then
+                local ok, rf = pcall(RoofDetection.IsUnderRoof, Config.roofRayMaxDistance)
+                roofed = ok and (rf == true)
+            end
+        end
+
+        if roofed then
+            -- throttle this debug line; replace if you use a different helper
+            if Config and Config.debugRainTracker == true then
+                if not RainTracker._rt then RainTracker._rt = {} end
+                local now = System.GetCurrTime()
+                if (RainTracker._rt.roof or 0) <= now then
+                    Utils.Log("⛱️ [RainTracker->CheckRain]: Roofed outside — suppressing rain wetness")
+                    RainTracker._rt.roof = now + 5
+                end
+            end
+
+            local _ok, _err = pcall(RainTracker.TryToDryOut)
+            return -- do not add wetness this tick
+        end
+
         if level ~= "none" and isOutside then
             local wetness = State.wetnessPercent or 0
             local gainBase = 0.1 + (rain ^ 1.2) * 0.9
@@ -284,9 +314,60 @@ function RainTracker.TryToDryOut()
 
         -- 🔥 Always check for fire and apply buff
         local nearFire, fireStrength = HeatDetection.HasNearbyFireSource()
+
+        -- Treat roofed/covered as "indoor enough" for drying UI
+        local roofed = false
+        if not isIndoors then
+            roofed = (State and State.roofedOutside) or false
+            if not roofed and RoofDetection and RoofDetection.IsUnderRoof then
+                local ok, rf = pcall(RoofDetection.IsUnderRoof, Config.roofRayMaxDistance)
+                roofed = ok and (rf == true)
+            end
+        end
+
         if Config.debugDrying then
             Utils.Log("[RainTracker->TryToDryOut]: Fire: near=" ..
                 tostring(nearFire) .. ", strength=" .. tostring(fireStrength))
+        end
+
+        -- prefer cached value from OutdoorPoll
+        if not isIndoors then
+            roofed = (State and State.roofedOutside) or false
+            -- fallback ray if cache not set
+            if (roofed == false) and RoofDetection and RoofDetection.IsUnderRoof then
+                local ok, rf = pcall(RoofDetection.IsUnderRoof, Config and Config.roofRayMaxDistance)
+                roofed = ok and (rf == true)
+            end
+        end
+
+        local isSheltered = isIndoors or roofed
+
+        do
+            if isSheltered and soul and RainTracker.UpdateDryingBuffs then
+                local ok, err = pcall(RainTracker.UpdateDryingBuffs, true, nearFire, soul) -- pass 'true' to show indoor-style drying UI
+
+                if not ok and Config.debugDrying then
+                    Utils.Log("💥 [RainTracker->TryToDryOut]: UpdateDryingBuffs failed: " .. tostring(err))
+                end
+            end
+        end
+
+        -- 🔎 Throttled decision context (3s) — no behavior change
+        RainTracker._dbg = RainTracker._dbg or {}
+        do
+            if Config and Config.debugDrying == true then
+                local now    = System.GetCurrTime()
+                local nextAt = RainTracker._dbg.dryctx or 0
+                if now >= nextAt then
+                    local wet = (State and (State.wetnessPercent or State.wetness)) or 0
+                    if wet <= 1 and (State and State.wetnessPercent == nil) then wet = wet * 100 end
+                    Utils.Log(("[DryCtx] indoors=%s roofed=%s sheltered=%s nearFire=%s heat=%.2f wet=%.2f%%")
+                        :format(tostring(isIndoors), tostring(roofed), tostring(isSheltered),
+                            tostring(nearFire), tonumber(fireStrength or 0) or 0, wet))
+
+                    RainTracker._dbg.dryctx = now + 3
+                end
+            end
         end
 
         -- ☔ Skip drying if it's raining and you're outside
@@ -421,42 +502,85 @@ function RainTracker.UpdateDryingBuffs(isIndoors, nearFire, soul)
     local wetness = State.wetnessPercent or 0
     if not soul then return end
 
+    -- Sticky "nearFire"
+    local now  = System.GetCurrTime()
+    local hold = (Config and Config.drying and Config.drying.buffHoldSeconds) or 0
+    if nearFire then
+        State._lastFireSeenAt = now
+    else
+        local last = State._lastFireSeenAt or 0
+        if hold > 0 and (now - last) < hold then
+            nearFire = true
+        end
+    end
+
+    -- local helpers (unchanged)
+    local function _wet()
+        local w = (State and (State.wetnessPercent or State.wetness)) or 0
+        if w <= 1 and (State and State.wetnessPercent == nil) then w = w * 100 end
+        return w
+    end
+    RainTracker._ub_rt = RainTracker._ub_rt or {}
+    local function _tick(key, secs)
+        local now = System.GetCurrTime()
+        local t   = RainTracker._ub_rt
+        if not t[key] or now >= t[key] then
+            t[key] = now + (secs or 3); return true
+        end
+        return false
+    end
+
+    -- decide newType
     local newType = nil
+    local indoorish = isIndoors or (State and State.shelteredActive == true)
 
     if wetness > 0 then
         -- ☔ Actively drying
-        newType = isIndoors and (nearFire and "fire" or "normal") or nil
-    elseif wetness <= 0 and nearFire and isIndoors then
+        newType = indoorish and (nearFire and "fire" or "normal") or nil
+    elseif wetness <= 0 and nearFire and indoorish then
         -- 🌡️ Dry but near fire = show signal
         newType = "fire_signal"
     end
 
-    -- ♻️ Skip if already active with same type
+    -- 👇 move the decision log *after* newType is computed
+    if Config and Config.debugDrying == true and _tick("ub_decide", 3) then
+        Utils.Log(string.format(
+            "[UpdateDryingBuffs] indoors=%s nearFire=%s wet=%.2f%% → newType=%s",
+            tostring(isIndoors), tostring(nearFire), _wet(), tostring(newType)
+        ))
+    end
+
+    -- same-type short-circuit
     if State.warmingActive and State.warmingType == newType then
-        if Config.debugDrying then Utils.Log("🔁 [RainTracker->UpdateDryingBuffs]: Drying buff already active — skipping") end
+        if Config.debugDrying and _tick("ub_same", 5) then
+            Utils.Log("🔁 [UpdateDryingBuffs]: already '" .. tostring(newType) .. "' — skipping")
+        end
         return
     end
 
-    -- 🔄 Remove old buff if switching type
+    -- switching types → remove old
     if State.warmingActive and State.warmingType ~= newType then
-        if Config.debugDrying then
-            Utils.Log(
-                "🔄 [RainTracker->UpdateDryingBuffs]: Changing drying type — removing old buff")
+        if Config.debugDrying and _tick("ub_remove", 3) then
+            Utils.Log("🔄 [UpdateDryingBuffs]: removing '" .. tostring(State.warmingType) .. "'")
         end
         BuffLogic.RemoveDryingBuffsOnly()
     end
 
-    -- 🚫 No valid drying condition
+    -- no valid target → clear state and exit
     if not newType then
-        if Config.debugDrying then
-            Utils.Log(
-                "🚫 [RainTracker->UpdateDryingBuffs]: No valid drying condition — not applying")
+        if Config.debugDrying and _tick("ub_none", 3) then
+            Utils.Log("🚫 [UpdateDryingBuffs]: no valid drying condition")
         end
-        State.warmingType = nil
+        State.warmingType   = nil
         State.warmingActive = false
         return
     end
 
-    -- ✅ Apply drying buff or fire proximity signal
+    -- ✅ apply new
     BuffLogic.ApplyDryingBuff(newType)
+
+    -- keep only ONE apply log (remove the earlier manual-throttle block)
+    if Config and Config.debugDrying == true and _tick("ub_apply", 3) then
+        Utils.Log("[UpdateDryingBuffs]: applied '" .. tostring(newType) .. "'")
+    end
 end

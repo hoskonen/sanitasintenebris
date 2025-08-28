@@ -61,8 +61,10 @@ local function _dryingStartDelaySec()
 end
 
 local function _tickIntervalSec()
-    return ((Config.drying and Config.drying.tickInterval) or 5000) / 1000
+    local ms = (Config and Config.drying and tonumber(Config.drying.tickInterval)) or 5000
+    return ms / 1000
 end
+
 
 function SanitasInTenebris.DryingSystem.Start()
     return SafeCall("start", function()
@@ -224,11 +226,14 @@ function SanitasInTenebris.DryingSystem.Tick()
 
             local dt = _tickIntervalSec()
             local amount = math.min(wetness, dryingRate * dt)
-            if debugEnabled then
-                DThrot("dry_rate", 3, string.format(
-                    "[DryingSystem->Tick]: rate=%.3f, dt=%.2f, amount=%.3f (wet=%.2f%%)",
-                    baseRate, dt or 1.0, amount, (State.wetnessPercent or 0)
-                ))
+
+
+            if Config.debugDrying then
+                local function num(x, d) return tonumber(x) or d end
+                local rateStr = string.format("%.3f", num(dryingRate, 0))
+                local dtStr   = string.format("%.2f", num(dt, 0))
+                local amtStr  = string.format("%.3f", num(amount, 0))
+                Utils.Log("[DryingSystem->Tick]: rate=" .. rateStr .. ", dt=" .. dtStr .. ", amount=" .. amtStr)
             end
 
             State.wetnessPercent = math.max(0, wetness - amount)

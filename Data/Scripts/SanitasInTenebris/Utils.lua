@@ -90,26 +90,6 @@ function Utils.LogOnce(key, message)
     Utils._loggedOnce[key] = true
 end
 
-function Utils.IsOverheadBlocked(maxDistance)
-    local player = Utils.GetPlayer()
-    if not player then return false end
-
-    local origin = player:GetWorldPos()
-    local direction = { x = 0, y = 0, z = 1 } -- Upward
-    maxDistance = maxDistance or 5            -- 5 meters up
-
-    -- Layer mask: ent_all or ent_static to avoid hitting dynamic entities
-    local hits = Physics.RayWorldIntersection(origin, direction, maxDistance, ent_static)
-
-    if hits and #hits > 0 then
-        Utils.Log("🧱 Overhead hit detected — likely under a roof")
-        return true
-    end
-
-    Utils.Log("🌞 No overhead geometry detected — likely outdoors")
-    return false
-end
-
 function Utils.SafePollRegister(name, interval, func, repeatable)
     local dbg = Config.debugPolling == true
     if dbg then Utils.Log("[SafePoll] PollingManager = " .. tostring(PollingManager)) end
