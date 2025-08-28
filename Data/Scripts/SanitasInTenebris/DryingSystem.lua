@@ -208,36 +208,34 @@ function SanitasInTenebris.DryingSystem.Tick()
             end
 
             -------------------------------------------------------------------
-            -- 5) Drying rate + apply
+            -- 5) Drying rate (math only) — UI is handled by RainTracker
             -------------------------------------------------------------------
-            local m = Config.dryingMultiplier or {}
-            local dryingRate = 0
-            if nearFire then
-                dryingRate = m.nearFire or 1.0
-            elseif isIndoors then
-                dryingRate = m.indoorNoFire or 0.1
+            -- Use your helper if present, otherwise fall back to the old math
+            local dryingRate
+            if SanitasInTenebris.DryingSystem.CalculateDryingMultiplier then
+                dryingRate = SanitasInTenebris.DryingSystem.CalculateDryingMultiplier(isIndoors, isOutside, nearFire)
             else
-                -- outside & not raining (we’re past the rain gate above)
-                dryingRate = m.outdoorNoRain or 0.2
-            end
-            if isOutside and Utils.IsTorchEquipped() then
-                dryingRate = dryingRate + (m.torch or 0.3)
+                local m = Config.dryingMultiplier or {}
+                dryingRate = nearFire and (m.nearFire or 1.0)
+                    or (isIndoors and (m.indoorNoFire or 0.1))
+                    or (m.outdoorNoRain or 0.2)
+                if isOutside and Utils.IsTorchEquipped and Utils.IsTorchEquipped() then
+                    dryingRate = dryingRate + (m.torch or 0.3)
+                end
             end
 
-            local dt = _tickIntervalSec()
-            local amount = math.min(wetness, dryingRate * dt)
-
+            local dt     = _tickIntervalSec()
+            local amount = math.min(wetness, (tonumber(dryingRate) or 0) * (tonumber(dt) or 0))
 
             if Config.debugDrying then
-                local function num(x, d) return tonumber(x) or d end
-                local rateStr = string.format("%.3f", num(dryingRate, 0))
-                local dtStr   = string.format("%.2f", num(dt, 0))
-                local amtStr  = string.format("%.3f", num(amount, 0))
-                Utils.Log("[DryingSystem->Tick]: rate=" .. rateStr .. ", dt=" .. dtStr .. ", amount=" .. amtStr)
+                Utils.Log(("[DryingSystem->Tick]: rate=%.3f, dt=%.2f, amount=%.3f")
+                    :format(tonumber(dryingRate) or 0, tonumber(dt) or 0, tonumber(amount) or 0))
             end
 
+            -- Apply wetness reduction
             State.wetnessPercent = math.max(0, wetness - amount)
 
+            -- Refresh tier if available
             local RT = _RT()
             if RT and type(RT.RefreshWetnessBuffTier) == "function" then
                 RT.RefreshWetnessBuffTier()
@@ -245,12 +243,13 @@ function SanitasInTenebris.DryingSystem.Tick()
                 Utils.Log("⚠️ [DryingSystem->Tick]: RainTracker.RefreshWetnessBuffTier missing")
             end
 
-            -- Drying buffs
-            if rain < dryingThreshold then
-                if nearFire then
-                    if not State.fireDryingActive then BuffLogic.ApplyDryingBuff("fire") end
-                else
-                    if not State.normalDryingActive then BuffLogic.ApplyDryingBuff("normal") end
+            -- Hand off drying UI to RainTracker (single owner)
+            if RainTracker and type(RainTracker.UpdateDryingBuffs) == "function" then
+                local player = Utils.GetPlayer()
+                local soul   = player and player.soul
+                if soul then
+                    local indoorish = isIndoors or (State and State.shelteredActive == true)
+                    pcall(RainTracker.UpdateDryingBuffs, indoorish, nearFire, soul)
                 end
             end
 

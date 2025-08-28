@@ -5,7 +5,7 @@
 		<!-- Sheltered Buff -->
 		<buff buff_class_id="4" buff_desc="buff_sheltered_desc" buff_exclusivity_id="1"
 			buff_id="61d8e6fd-b3b0-496c-9982-a03e9d020fe5" buff_lifetime_id="0"
-			buff_name="buff_sheltered" buff_ui_name="buff_sheltered" buff_ui_type_id="2"
+			buff_name="buff_sheltered" buff_ui_name="buff_sheltered" buff_ui_type_id="1"
 			buff_ui_visibility_id="3" icon_id="buff_sheltered" is_persistent="true"
 			slot_buff_ui_name="buff_sheltered" implementation="Cpp:Constant" buff_params="xpm*1.2" />
 
