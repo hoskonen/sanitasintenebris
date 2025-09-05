@@ -15,7 +15,7 @@ end
 SanitasInTenebris._rt = SanitasInTenebris._rt or {}
 local function IThrot(key, intervalSec, msg)
     local on = Config and
-    ((Config.debugIndoorPolling == true) or (Config.debugPolling == true) or (Config.indoorDebug == true))
+        ((Config.debugIndoorPolling == true) or (Config.debugPolling == true) or (Config.indoorDebug == true))
     if not on then return end
     -- Prefer Utils.ThrottledCh if available
     if Utils and type(Utils.ThrottledCh) == "function" then
@@ -335,6 +335,13 @@ function SanitasInTenebris.OnGameplayStarted(actionName, eventName, argTable)
         end
         InteriorLogic.HandleInteriorState(player, soul)
         SanitasInTenebris.StopPoll()
+
+        Script.SetTimer(5000, function()
+            State.isInitialized = true
+            if Config.debugMain then
+                Utils.Log("[Main->OnGameplayStarted]: State.isInitialized = true (indoors load)")
+            end
+        end)
     else
         if Config.mainDebug then
             Utils.Log("[Main->OnGameplayStarted]: Player is outdoors at load — enabling polling systems")

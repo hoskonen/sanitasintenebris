@@ -11,21 +11,18 @@ local HeatDetection            = HeatDetection or (SanitasInTenebris and Sanitas
 
 local debugEnabled             = (Config and Config.debugDrying) == true
 
--- Debug gate (piggybacks on global polling if you want)
-local function DDbg()
-    return Config and ((Config.debugDrying == true) or (Config.debugPolling == true))
-end
-
 -- Local throttle so we don't depend on Utils.ThrottledCh load order
-SanitasInTenebris._dry_rt = SanitasInTenebris._dry_rt or {}
+SanitasInTenebris._dry_rt      = SanitasInTenebris._dry_rt or {}
 local function DThrot(key, intervalSec, msg)
-    if not DDbg() then return end
+    -- inline debug gate
+    if not (Config and ((Config.debugDrying == true) or (Config.debugPolling == true))) then return end
+
     if Utils and type(Utils.ThrottledCh) == "function" then
         Utils.ThrottledCh("drying", key, intervalSec, msg)
         return
     end
-    local now = System.GetCurrTime()
-    local t = SanitasInTenebris._dry_rt
+    local now    = System.GetCurrTime()
+    local t      = SanitasInTenebris._dry_rt
     local nextAt = t[key]
     if not nextAt or now >= nextAt then
         Utils.Log(msg)
@@ -161,6 +158,14 @@ function SanitasInTenebris.DryingSystem.Tick()
                 State.warmingActive = false
                 State.normalDryingActive = false
                 State.fireDryingActive = false
+
+                if RainTracker and RainTracker.UpdateDryingBuffs and HeatDetection and HeatDetection.HasNearbyFireSource then
+                    local nearFire = false
+                    local okFire, nf = pcall(HeatDetection.HasNearbyFireSource, Config.fireDetectionRadius or 2.0)
+                    if okFire then nearFire = (nf == true) end
+                    local indoorish = (not isOutside) or (State and State.shelteredActive == true)
+                    pcall(RainTracker.UpdateDryingBuffs, indoorish, nearFire, soul)
+                end
                 return
             end
 
@@ -235,6 +240,12 @@ function SanitasInTenebris.DryingSystem.Tick()
             -- Apply wetness reduction
             State.wetnessPercent = math.max(0, wetness - amount)
 
+            if Config and Config.debugDrying then
+                Utils.Log(("[DryTick] wet=%.2f%% → %.2f%% (Δ=%.3f | rate=%.3f, dt=%.2f)")
+                    :format(tonumber(wetness) or 0, tonumber(State.wetnessPercent) or 0, tonumber(amount) or 0,
+                        tonumber(dryingRate) or 0, tonumber(dt) or 0))
+            end
+
             -- Refresh tier if available
             local RT = _RT()
             if RT and type(RT.RefreshWetnessBuffTier) == "function" then
@@ -268,7 +279,6 @@ end
 
 function SanitasInTenebris.DryingSystem.CalculateDryingMultiplier(isIndoors, isOutside, nearFire)
     local m = Config.dryingMultiplier or {}
-    local isCovered = false -- 🔧 Temporarily disabled to avoid false positives
     local holdingTorch = Utils.IsTorchEquipped()
     local multiplier = 0
 
@@ -286,28 +296,51 @@ function SanitasInTenebris.DryingSystem.CalculateDryingMultiplier(isIndoors, isO
                 multiplier = multiplier + (m.torch or 0.3)
             end
         end
-        -- 🌤 Outdoors:
-        --   Covered tents give slight bonus (tracking needs to be developed)
-        --   Torch stacks additively with passive drying (no fire nearby)
-        --   Fire overrides everything
     elseif isOutside then
         if nearFire then
             multiplier = m.nearFire or 1.0
-        elseif isCovered then
-            multiplier = m.coveredOutdoor or 0.15
         else
             multiplier = m.outdoorNoRain or 0.2
         end
-
         if holdingTorch then
             multiplier = multiplier + (m.torch or 0.3)
         end
     end
 
-    if debugEnabled then
-        Utils.Log(string.format(
-            "[DryingSystem->CalculateDryingMultiplier]: Drying multiplier: %.2f (indoors=%s, fire=%s, covered=%s, torch=%s)",
-            multiplier, tostring(isIndoors), tostring(nearFire), tostring(isCovered), tostring(holdingTorch)))
+    -- nice, explicit breakdown log (no math changes)
+    do
+        local dbg = (Config and ((Config.debugDrying == true)))
+        if dbg then
+            local function n(x) return tonumber(x) or 0 end
+            local m = Config.dryingMultiplier or {}
+            local rain = (RainTracker and RainTracker.GetRainSafe and RainTracker.GetRainSafe()) or 0
+            local torchOn = (Utils.IsTorchEquipped and Utils.IsTorchEquipped()) or false
+            local sheltered = isIndoors or (State and State.shelteredActive == true)
+
+            -- recompute a *breakdown* that mirrors your current logic
+            local base
+            if nearFire then
+                base = m.nearFire or 1.0
+            elseif isIndoors then
+                base = m.indoorNoFire or 0.1
+            elseif isOutside then
+                -- isCovered is currently false / TODO, keep as in your code
+                base = m.outdoorNoRain or 0.2
+            else
+                base = 0
+            end
+
+            local torchBump = 0
+            if torchOn and not nearFire then
+                -- same rule you use above: add torch when not near fire
+                torchBump = m.torch or 0.3
+            end
+
+            Utils.Log(("[DryRate] base=%.3f torch=%.3f ⇒ final=%.3f  |  flags: indoors=%s outside=%s fire=%s torch=%s sheltered=%s rain=%.2f")
+                :format(n(base), n(torchBump), n(multiplier),
+                    tostring(isIndoors), tostring(isOutside), tostring(nearFire),
+                    tostring(torchOn), tostring(sheltered), n(rain)))
+        end
     end
 
     return multiplier

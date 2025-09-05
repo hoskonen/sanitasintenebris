@@ -17,7 +17,7 @@ Config = {
     debugRainTracker = true,
     debugBuffLogic = true,
     debugRoofDetection = false,
-    fireDebug = false,
+    fireDebug = true,
     interiorLogicDebug = true,
     debugDrying = true,
     rainCleansDebug = false,
@@ -30,9 +30,8 @@ Config = {
     dryingMultiplier = {
         indoorNoFire = 0.001,  -- 🏠 Drying rate indoors without any fire
         outdoorNoRain = 0.002, -- 🌤 Drying rate outdoors, not raining
-        nearFire = 0.01,       -- 🔥 Strong drying near heat source (campfire, forge)
-        torch = 0.01,          -- 🔥 Torch warmth contribution (additive only when outdoors)
-        coveredOutdoor = 0.015 -- 🏕 Drying rate under tent or cover (optional)
+        nearFire = 0.005,      -- 🔥 Strong drying near heat source (campfire, forge)
+        torch = 0.003,         -- 🔥 Torch warmth contribution (additive only when outdoors)
     },
     rainCleans = {
         CleaningThreshold = 2.0,          -- progress needed for full wash
@@ -71,6 +70,7 @@ Config = {
         fireplacesmartobject = 0.9,
         -- smith/forge coverage (name- or class-contains, case-insensitive)
         forge                = 1.2, -- hits "light_forge", "coal_forge2", etc.
+        light23              = 0.8, -- pig grilling fireplace
     },
     -- Roof ray settings
     roofRayStartHeight = 0.5,  -- meters above player head to start the ray
