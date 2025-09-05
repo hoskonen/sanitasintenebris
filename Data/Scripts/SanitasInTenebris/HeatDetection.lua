@@ -115,37 +115,49 @@ function HeatDetection.HasNearbyFireSource(radius)
         HLog(("🔎 [HeatDetection]: scanning %d entities"):format(#entities))
     end
 
-    local bestStrength, positiveHits, sawNegative = 0.0, 0, false
-    local closestPosDist = nil
+    -- NOTE: initialize to numeric sentinels; avoids engine complaints about nil math args
+    local bestStrength   = 0.0
+    local positiveHits   = 0
+    local closestPosDist = math.huge -- numeric sentinel; "no positive seen" = still huge
 
     for _, e in ipairs(entities) do
         local s, neg, why = classifyEntity(e)
-        if debugEnabled then HLog(string.format("[HeatDetection]: scan s=%.2f neg=%s :: %s", s, tostring(neg), why)) end
 
-        if s > 0 then
+        -- per-entity effective strength (only this entity’s negatives can downgrade it)
+        local eff = s
+        if neg and s > 0 and FD.downgradeUnlitStrength then
+            eff = math.min(s, FD.downgradeUnlitStrength)
+        end
+
+        if debugEnabled then
+            HLog(string.format("[HeatDetection]: scan s=%.2f neg=%s eff=%.2f :: %s",
+                s, tostring(neg), eff, why))
+        end
+
+        if eff > 0 then
             positiveHits = positiveHits + 1
-            if s > bestStrength then bestStrength = s end
+            if eff > bestStrength then bestStrength = eff end
 
-            -- distance to player
-            local epos = (type(e.GetWorldPos) == "function" and e:GetWorldPos()) or
-                (type(e.GetPos) == "function" and e:GetPos())
-            if epos then
+            -- distance to this positive/effective entity
+            local epos = (type(e.GetWorldPos) == "function" and e:GetWorldPos())
+                or (type(e.GetPos) == "function" and e:GetPos())
+            if epos and pos then
                 local dx       = (epos.x - pos.x); local dy = (epos.y - pos.y); local dz = (epos.z - pos.z)
                 local d        = math.sqrt(dx * dx + dy * dy + dz * dz)
-                closestPosDist = (closestPosDist == nil) and d or math.min(closestPosDist, d)
+                closestPosDist = math.min(closestPosDist, d)
             end
         end
-        if neg then sawNegative = true end
     end
 
+    -- gates
     local minS                = tonumber(FD.minStrength or 0.6)
     local prox                = tonumber(FD.proximityMeters or (indoors and 1.6 or 1.8))
-    local inProx              = (closestPosDist ~= nil) and (closestPosDist <= prox)
+    local inProx              = (closestPosDist <= prox) -- safe: closestPosDist is numeric
 
     local rawGot, rawStrength = false, 0.0
     if positiveHits >= (FD.requireAny or 1) and inProx and (bestStrength >= minS) then
-        rawGot = true
-        rawStrength = sawNegative and math.min(bestStrength, FD.downgradeUnlitStrength or bestStrength) or bestStrength
+        rawGot      = true
+        rawStrength = bestStrength
     end
 
     -- stability gate (prevents flicker: need N consecutive confirmations)

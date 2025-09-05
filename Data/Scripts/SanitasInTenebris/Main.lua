@@ -324,6 +324,9 @@ function SanitasInTenebris.OnGameplayStarted(actionName, eventName, argTable)
         return
     end
 
+    -- clear fire sense cache so detection doesn't carry across loads
+    State._fireSense = { active = false, pos = 0, neg = 0, strength = 0.0 }
+
     local isIndoors = InteriorLogic.IsPlayerInInterior()
     if Config.mainDebug then
         Utils.Log("📍 [Main->OnGameplayStarted]: Interior state at load: isIndoors = " .. tostring(isIndoors))
