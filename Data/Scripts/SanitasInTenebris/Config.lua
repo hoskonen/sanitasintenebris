@@ -27,6 +27,10 @@ Config = {
         startDelay = 3000,
         buffHoldSeconds = 4
     },
+    shelter = {
+        applyDelaySec  = 1.5,  -- must remain sheltered this long before showing the buff
+        releaseHoldSec = 3.0,  -- keep the buff this long after losing shelter (prevents flicker)
+    },
     dryingMultiplier = {
         indoorNoFire = 0.001,  -- 🏠 Drying rate indoors without any fire
         outdoorNoRain = 0.002, -- 🌤 Drying rate outdoors, not raining

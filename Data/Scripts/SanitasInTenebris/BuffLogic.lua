@@ -15,36 +15,54 @@ function BuffLogic.ApplyShelteredBuff(soul)
         return
     end
 
-    -- Re-entrancy guard
-    if State._shelterApplying then
-        if Config.debugBuffLogic then
-            Utils.Log("[BuffLogic->ApplyShelteredBuff]: Re-entry blocked")
-        end
+    local guid = Config and Config.buffs and Config.buffs.sheltered
+    if not guid then
+        Utils.Log("[BuffLogic->ApplyShelteredBuff]: missing sheltered GUID in Config")
         return
     end
 
+    local now                 = System.GetCurrTime()
+    local delay               = (Config.shelter and Config.shelter.applyDelaySec) or 0
+
+    -- Start (or continue) the debounce window the first tick we detect shelter.
+    -- IMPORTANT: even if buff is already active, we refresh lastSeen each tick.
+    State._shelterCandidateAt = State._shelterCandidateAt or now
+    State._shelterLastSeenAt  = now
+
+    -- If buff already active, nothing else to do (we still updated lastSeen above).
     if State.shelteredActive then
         if Config.debugBuffLogic then
-            Utils.Log("[BuffLogic->ApplyShelteredBuff]: ApplyShelteredBuff skipped — already active")
+            BLog("[BuffLogic->ApplyShelteredBuff]: Skipped — already active (debounce maintained)")
         end
         return
     end
 
+    -- Not enough continuous shelter time yet → do not apply
+    if (now - State._shelterCandidateAt) < delay then
+        if Config.debugBuffLogic then
+            BLog("[BuffLogic->ApplyShelteredBuff]: Debouncing… " ..
+                string.format("%.2fs / %.2fs", now - State._shelterCandidateAt, delay))
+        end
+        return
+    end
+
+    -- Re-entrancy guard (kept from your original)
+    if State._shelterApplying then
+        if Config.debugBuffLogic then BLog("[BuffLogic->ApplyShelteredBuff]: Re-entry blocked") end
+        return
+    end
     State._shelterApplying = true
 
-    local removed = soul:RemoveAllBuffsByGuid(Config.buffs.sheltered)
+    -- Defensive: clear any stale copies before adding
+    local removed = soul:RemoveAllBuffsByGuid(guid) or 0
     if Config.debugBuffLogic then
-        Utils.Log("[BuffLogic->ApplyShelteredBuff]: Removed previous sheltered buff(s): " .. tostring(removed))
+        BLog("[BuffLogic->ApplyShelteredBuff]: Removed previous sheltered buff(s): " .. tostring(removed))
     end
 
-    local added = soul:AddBuff(Config.buffs.sheltered)
-    if Config.debugBuffLogic then
-        BLog("[BuffLogic->ApplyShelteredBuff]: Attempted to add sheltered buff: " .. tostring(soul))
-    end
-
+    local added = soul:AddBuff(guid)
     if added then
         State.shelteredActive = true
-        Utils.Log("[BuffLogic->ApplyShelteredBuff]: Sheltered buff successfully applied")
+        Utils.Log("[BuffLogic->ApplyShelteredBuff]: Sheltered buff successfully applied (debounced)")
     else
         Utils.Log("[BuffLogic->ApplyShelteredBuff]: Failed to apply sheltered buff")
     end
@@ -65,12 +83,26 @@ function BuffLogic.RemoveShelteredBuff(player, soul)
         return
     end
 
-    -- Engine usually returns 0/1; guard with 0 if nil
+    local now  = System.GetCurrTime()
+    local hold = (Config.shelter and Config.shelter.releaseHoldSec) or 0
+    local last = State._shelterLastSeenAt or 0
+
+    -- Hold the buff briefly after leaving shelter to avoid HUD flicker
+    if (now - last) < hold then
+        if Config.debugBuffLogic then
+            BLog("[BuffLogic->RemoveShelteredBuff]: Holding for " ..
+                string.format("%.2fs remaining", hold - (now - last)))
+        end
+        return
+    end
+
+    -- Remove and fully reset debounce state so next shelter requires full delay again
     local removed = soul:RemoveAllBuffsByGuid(guid) or 0
     BLog("[BuffLogic->RemoveShelteredBuff]: Buff removed? " .. tostring(removed))
 
-    -- Sync state unconditionally so we never get stuck “true”
-    State.shelteredActive = false
+    State.shelteredActive     = false
+    State._shelterCandidateAt = nil
+    State._shelterLastSeenAt  = nil
     BLog("[BuffLogic->RemoveShelteredBuff]: Guard: State.shelteredActive set to false")
 end
 
