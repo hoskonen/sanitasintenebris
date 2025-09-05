@@ -160,11 +160,13 @@ function SanitasInTenebris.DryingSystem.Tick()
                 State.fireDryingActive = false
 
                 if RainTracker and RainTracker.UpdateDryingBuffs and HeatDetection and HeatDetection.HasNearbyFireSource then
-                    local nearFire = false
-                    local okFire, nf = pcall(HeatDetection.HasNearbyFireSource, Config.fireDetectionRadius or 2.0)
-                    if okFire then nearFire = (nf == true) end
+                    local nearFire, fireStrength = false, 0
+                    local okFire, v1, v2 = pcall(HeatDetection.HasNearbyFireSource, Config.fireDetectionRadius or 2.0)
+                    if okFire then
+                        nearFire, fireStrength = (v1 == true), (v2 or 0)
+                    end
                     local indoorish = (not isOutside) or (State and State.shelteredActive == true)
-                    pcall(RainTracker.UpdateDryingBuffs, indoorish, nearFire, soul)
+                    pcall(RainTracker.UpdateDryingBuffs, indoorish, nearFire, soul, fireStrength)
                 end
                 return
             end
@@ -260,7 +262,7 @@ function SanitasInTenebris.DryingSystem.Tick()
                 local soul   = player and player.soul
                 if soul then
                     local indoorish = isIndoors or (State and State.shelteredActive == true)
-                    pcall(RainTracker.UpdateDryingBuffs, indoorish, nearFire, soul)
+                    pcall(RainTracker.UpdateDryingBuffs, indoorish, nearFire, soul, fireStrength)
                 end
             end
 

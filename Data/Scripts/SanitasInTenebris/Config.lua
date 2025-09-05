@@ -25,11 +25,11 @@ Config = {
     drying = {
         tickInterval = 2000,
         startDelay = 3000,
-        buffHoldSeconds = 4
+        buffHoldSeconds = 3
     },
     shelter = {
-        applyDelaySec  = 1.5,  -- must remain sheltered this long before showing the buff
-        releaseHoldSec = 3.0,  -- keep the buff this long after losing shelter (prevents flicker)
+        applyDelaySec  = 1.5, -- must remain sheltered this long before showing the buff
+        releaseHoldSec = 3.0, -- keep the buff this long after losing shelter (prevents flicker)
     },
     dryingMultiplier = {
         indoorNoFire = 0.001,  -- 🏠 Drying rate indoors without any fire
@@ -70,11 +70,48 @@ Config = {
         tier2 = { enter = 20, exit = 15 },
         tier3 = { enter = 50, exit = 45 },
     },
-    fireSourceClasses = {
-        fireplacesmartobject = 0.9,
-        -- smith/forge coverage (name- or class-contains, case-insensitive)
-        forge                = 1.2, -- hits "light_forge", "coal_forge2", etc.
-        light23              = 0.8, -- pig grilling fireplace
+    fireDetection = {
+        -- Require real heat to count as "near fire"
+        minStrength            = 0.6, -- only strengths ≥ 0.6 will show fire drying
+        -- matching (all keys lowercased)
+        classes                = { fireplacesmartobject = 0.9, forge = 1.2, stove = 0.8 },
+        name                   = {
+            fire                                 = 0.5,
+            fireplace                            = 0.9,
+            campfire                             = 0.8,
+            blacksmith                           = 1.0,
+            coal                                 = 0.7,
+            forge                                = 1.2,
+            oven                                 = 0.9,
+            firesmallexterior5                   = 0.8,
+            ["staticlights/firesmallexterior5"]  = 0.8,
+            ["firemediuminterior5"]              = 0.8, -- e.g. trosky scribe room
+            ["staticlights/firemediuminterior5"] = 0.8, -- e.g. trosky scribe room
+        },
+        prefab                 = { fire = 0.6, fireplace = 0.9, forge = 1.2, oven = 0.9 },
+        particle               = { fire = 0.9, flame = 0.9, ember = 0.6, smoke = 0.3 },
+
+        -- Make sure unlit/steam-off variants are treated as weak
+        negative               = {
+            fireplace_off          = true,
+            steam_off              = true, -- ← your “fireplace_steam_off1...” case
+            cauldron_empty         = true,
+            unlit                  = true,
+            extinguished           = true,
+            -- optional strictness:
+            playerheadlight        = true,
+            torch_runtime_prefab   = true,
+            torchstanding          = true,
+            ["staticlights/torch"] = true,
+        },
+        downgradeUnlitStrength = 0.2, -- cap if a negative is also present
+
+        requireAny             = 1,   -- how many positive hits needed
+        proximityMeters        = 1.6,
+        indoorRadius           = 1.5,
+        outdoorRadius          = 1.5,
+        onConsecutive          = 2, -- stability: N positives to flip ON
+        offConsecutive         = 2, -- stability: N negatives to flip OFF
     },
     -- Roof ray settings
     roofRayStartHeight = 0.5,  -- meters above player head to start the ray

@@ -23,9 +23,9 @@
 <Row><Cell>buff_drying_firesource</Cell><Cell>Warm Hearth</Cell><Cell>Warm Hearth</Cell></Row>
 <Row><Cell>buff_drying_firesource_desc</Cell><Cell>There's nothing better than a crackling fireplace. The heat drives out the damp and restores hope, strength and comfort.</Cell><Cell>There's nothing better than a crackling fireplace. The heat drives out the damp and restores hope, strength and comfort.</Cell></Row>
 
-<!-- Buff Torch -->
-<Row><Cell>buff_torch</Cell><Cell>Torchlight</Cell><Cell>Torchlight</Cell></Row>
-<Row><Cell>buff_torch_desc</Cell><Cell>A modest flame held close keeps the cold at bay. It's not a hearth, but it'll do for now.</Cell><Cell>A modest flame held close keeps the cold at bay. It's not a hearth, but it'll do for now.</Cell></Row>
+<!-- Buff Ember's Embraced -->
+<Row><Cell>buff_embersembraced</Cell><Cell>Ember's Embraced</Cell><Cell>Ember's Embraced</Cell></Row>
+<Row><Cell>buff_embersembraced_desc</Cell><Cell>The fire's gentle glow lingers upon you, chasing away the day's chill. With warmth in your bones and comfort in your heart, the bed feels softer, and sleep brings quicker mending.</Cell><Cell>The fire's gentle glow lingers upon you, chasing away the day's chill. With warmth in your bones and comfort in your heart, the bed feels softer, and sleep brings quicker mending.</Cell></Row>
 
 <!-- Buff Refreshed -->
 <Row><Cell>buff_refreshed</Cell><Cell>Refreshed</Cell><Cell>Refreshed</Cell></Row>

@@ -51,6 +51,13 @@
 			implementation="Cpp:Constant" is_persistent="true"
 			slot_buff_ui_name="buff_drying_firesource" />
 
+		<!-- Buff Ember's Embraced -->
+		<buff buff_class_id="4" buff_desc="buff_embersembraced_desc" buff_exclusivity_id="1"
+			buff_id="c98c1439-bae0-43f1-9d3b-6a64a13e5e82" buff_lifetime_id="0"
+			buff_name="buff_embersembraced" buff_params="shr*1.2,bgy*1.2" buff_ui_name="buff_embersembraced"
+			buff_ui_type_id="1" buff_ui_visibility_id="3" icon_id="buff_embersembraced"
+			implementation="Cpp:Constant" is_persistent="true" slot_buff_ui_name="buff_embersembraced" />
+
 		<!-- Buff Refreshed -->
 		<buff buff_class_id="4" buff_desc="buff_refreshed_desc" buff_exclusivity_id="1"
 			buff_id="c98c1439-bae0-43f1-9d3b-6a64a13e5e82" buff_lifetime_id="0"

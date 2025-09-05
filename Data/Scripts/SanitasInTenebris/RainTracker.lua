@@ -369,8 +369,8 @@ function RainTracker.TryToDryOut()
         end
 
         -- ensure indoor-style drying UI where sheltered (also shows fire_signal when dry+near fire)
-        if sheltered and RainTracker.UpdateDryingBuffs then
-            local _okUB, _errUB = pcall(RainTracker.UpdateDryingBuffs, true, nearFire, soul)
+        if RainTracker.UpdateDryingBuffs then
+            local _okUB, _errUB = pcall(RainTracker.UpdateDryingBuffs, isIndoors, nearFire, soul, fireStrength)
             if not _okUB and Config.debugDrying then
                 Utils.Log("💥 [RainTracker->TryToDryOut]: UpdateDryingBuffs failed: " .. tostring(_errUB))
             end
@@ -474,88 +474,105 @@ function RainTracker.CheckNearbyFire()
     return nearFire, fireStrength
 end
 
-function RainTracker.UpdateDryingBuffs(isIndoors, nearFire, soul)
-    local wetness = State.wetnessPercent or 0
+function RainTracker.UpdateDryingBuffs(isIndoors, nearFire, soul, fireStrength)
     if not soul then return end
 
-    -- Sticky "nearFire"
-    local now  = System.GetCurrTime()
-    local hold = (Config and Config.drying and Config.drying.buffHoldSeconds) or 0
-    if nearFire then
+    local wetness    = tonumber(State.wetnessPercent or 0) or 0
+
+    -- ---- gate fire by strength ----
+    local minS       = (Config and Config.fireDetection and Config.fireDetection.minStrength) or 0.6
+    local fStr       = tonumber(fireStrength) or 0
+    local strongFire = (nearFire == true) and (fStr >= minS)
+
+    -- ---- indoor-only sticky hold to avoid HUD flicker near stoves/ovens ----
+    local now        = System.GetCurrTime()
+    local hold       = (Config and Config.drying and Config.drying.buffHoldSeconds) or 0
+
+    if strongFire then
         State._lastFireSeenAt = now
     else
-        local last = State._lastFireSeenAt or 0
-        if hold > 0 and (now - last) < hold then
-            nearFire = true
+        if isIndoors and hold > 0 then
+            local last = State._lastFireSeenAt or 0
+            if (now - last) < hold then
+                strongFire = true -- brief grace indoors only
+            else
+                State._lastFireSeenAt = nil
+            end
+        else
+            -- outside (or no hold): no stickiness
+            State._lastFireSeenAt = nil
         end
     end
 
-    -- local helpers (unchanged)
+    -- ---- lightweight throttled logs ----
+    RainTracker._ub_rt = RainTracker._ub_rt or {}
+    local function _tick(key, secs)
+        local t = RainTracker._ub_rt
+        local n = t[key] or 0
+        if now >= n then
+            t[key] = now + (secs or 3); return true
+        end
+        return false
+    end
     local function _wet()
         local w = (State and (State.wetnessPercent or State.wetness)) or 0
         if w <= 1 and (State and State.wetnessPercent == nil) then w = w * 100 end
         return w
     end
-    RainTracker._ub_rt = RainTracker._ub_rt or {}
-    local function _tick(key, secs)
-        local now = System.GetCurrTime()
-        local t   = RainTracker._ub_rt
-        if not t[key] or now >= t[key] then
-            t[key] = now + (secs or 3); return true
-        end
-        return false
-    end
 
-    -- decide newType
+    -- ---- decide target UI type ----
+    -- fire wins anywhere (indoors OR outdoors) when strong & close
+    -- normal shows only indoors (keeps outdoor UI clean)
     local newType = nil
-    local indoorish = isIndoors or (State and State.shelteredActive == true)
-
     if wetness > 0 then
-        -- ☔ Actively drying
-        newType = indoorish and (nearFire and "fire" or "normal") or nil
-    elseif wetness <= 0 and nearFire and indoorish then
-        -- 🌡️ Dry but near fire = show signal
-        newType = "fire_signal"
+        if strongFire then
+            newType = "fire"
+        elseif indoorish then
+            newType = "normal"
+        end
+    else
+        if strongFire then newType = "fire_signal" end
     end
 
-    -- 👇 move the decision log *after* newType is computed
+
     if Config and Config.debugDrying == true and _tick("ub_decide", 3) then
         Utils.Log(string.format(
-            "[UpdateDryingBuffs] indoors=%s nearFire=%s wet=%.2f%% → newType=%s",
-            tostring(isIndoors), tostring(nearFire), _wet(), tostring(newType)
-        ))
+            "[UpdateDryingBuffs] indoors=%s nearFire=%s strongFire=%s fire=%.2f≥%.2f wet=%.2f%% → %s",
+            tostring(isIndoors), tostring(nearFire), tostring(strongFire), fStr, minS, _wet(), tostring(newType)))
     end
 
-    -- same-type short-circuit
+    -- ---- no-op if unchanged ----
     if State.warmingActive and State.warmingType == newType then
-        if Config.debugDrying and _tick("ub_same", 5) then
+        if Config and Config.debugDrying and _tick("ub_same", 5) then
             Utils.Log("🔁 [UpdateDryingBuffs]: already '" .. tostring(newType) .. "' — skipping")
         end
         return
     end
 
-    -- switching types → remove old
+    -- ---- switching types → remove old ----
     if State.warmingActive and State.warmingType ~= newType then
-        if Config.debugDrying and _tick("ub_remove", 3) then
+        if Config and Config.debugDrying and _tick("ub_remove", 3) then
             Utils.Log("🔄 [UpdateDryingBuffs]: removing '" .. tostring(State.warmingType) .. "'")
         end
         BuffLogic.RemoveDryingBuffsOnly()
+        State.warmingActive = false
+        State.warmingType   = nil
     end
 
-    -- no valid target → clear state and exit
+    -- ---- apply / clear ----
     if not newType then
-        State.warmingType   = nil
         State.warmingActive = false
-        if Config.debugDrying and _tick("ub_none", 3) then
+        State.warmingType   = nil
+        if Config and Config.debugDrying and _tick("ub_none", 3) then
             Utils.Log("🚫 [UpdateDryingBuffs]: no valid drying condition")
         end
         return
     end
 
-    -- ✅ apply new
     BuffLogic.ApplyDryingBuff(newType)
+    State.warmingActive = true
+    State.warmingType   = newType
 
-    -- keep only ONE apply log (remove the earlier manual-throttle block)
     if Config and Config.debugDrying == true and _tick("ub_apply", 3) then
         Utils.Log("[UpdateDryingBuffs]: applied '" .. tostring(newType) .. "'")
     end
