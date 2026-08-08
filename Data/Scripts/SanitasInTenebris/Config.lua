@@ -10,17 +10,17 @@ Config = {
     fireRainResistanceFactor = 0.7, -- max % resistance against rain when near fire
     rainWetnessGain = 0.5,          -- base wetness gain per tick from rain
     -- MAIN DEBUG FLAGS
-    enableLogOnce = false,
-    mainDebug = false,
+    enableLogOnce = true,
+    mainDebug = true,
     debugPolling = true,
     debugIndoorPolling = true, --indoor poll tick + related
     debugRainTracker = true,
     debugBuffLogic = true,
-    debugRoofDetection = false,
+    debugRoofDetection = true,
     fireDebug = true,
     interiorLogicDebug = true,
     debugDrying = true,
-    rainCleansDebug = false,
+    rainCleansDebug = true,
     --
     drying = {
         tickInterval = 2000,
