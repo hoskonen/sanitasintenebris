@@ -1,30 +1,32 @@
 -- InteriorLogic.lua
-System.LogAlways("4$ [Sanitas] ✅ Loaded: InteriorLogic")
+Utils.LogModuleLoaded("InteriorLogic")
 
 InteriorLogic = {}
-local debugEnabled = Config.interiorLogicDebug == true
+
+local function ILog(msg)
+    Utils.LogIf("interior", tostring(msg))
+end
 
 function InteriorLogic.IsPlayerInInterior()
     local player = Utils.GetPlayer()
     if not player then
-        if debugEnabled then
-            Utils.Log("⚠️ [InteriorLogic]: IsPlayerInInterior: player is nil")
-        end
+        ILog("[InteriorLogic]: IsPlayerInInterior: player is nil")
         return false
     end
 
-    local pos = player:GetPos()
+    local pos = player:GetWorldPos()
     if not pos then
-        if debugEnabled then
-            Utils.Log("⚠️ [InteriorLogic]: IsPlayerInInterior: player position is nil")
-        end
+        ILog("[InteriorLogic]: IsPlayerInInterior: player position is nil")
         return false
     end
 
-    local result = XGenAIModule.IsPointInAreaWithLabel(pos, "interior") == true
+    local ok, result = pcall(function()
+        return XGenAIModule.IsPointInAreaWithLabel(pos, "interior")
+    end)
 
-    if debugEnabled and State._lastInteriorLog ~= result then
-        Utils.Log("🏠 [InteriorLogic]: XGenAIModule result for 'interior' = " .. tostring(result))
+    result = ok and result == true
+    if State._lastInteriorLog ~= result then
+        ILog("[InteriorLogic]: XGen interior = " .. tostring(result))
         State._lastInteriorLog = result
     end
 
@@ -33,31 +35,37 @@ end
 
 function InteriorLogic.HandleInteriorState(player, soul)
     if State._indoorInitDone then
-        if Config.debugIndoor then Utils.Log("[InteriorLogic]: HandleInteriorState skipped — already initialized") end
+        Utils.LogIf("indoor", "[InteriorLogic]: HandleInteriorState skipped; already initialized")
         return
     end
-    State._indoorInitDone = true
 
     if not player or not soul then
-        Utils.Log("❌ [InteriorLogic]: HandleInteriorState: player or soul is nil — skipping indoor logic")
+        Utils.Log("[InteriorLogic]: HandleInteriorState: player or soul is nil")
         return
     end
 
+    State._indoorInitDone = true
     State.pollingSuspended = true
 
-    SanitasInTenebris.ScheduleExitInterior()
-    SanitasInTenebris.ScheduleIndoorPoll()
+    if SanitasInTenebris.ScheduleExitInterior then
+        SanitasInTenebris.ScheduleExitInterior()
+    end
+    if SanitasInTenebris.ScheduleIndoorPoll then
+        SanitasInTenebris.ScheduleIndoorPoll()
+    end
 
-    BuffLogic.ApplyShelteredBuff(soul)
+    BuffLogic.ApplyShelteredBuff(soul, "Indoors")
     State.wasIndoors = true
 
-    -- 💧 Ensure DryingSystem is running
-    if not State.dryingStarted then
+    if not State.dryingStarted and SanitasInTenebris.DryingSystem and SanitasInTenebris.DryingSystem.Start then
         State.dryingStarted = true
-        Utils.Log("💧 [InteriorLogic]: Started DryingSystem via HandleInteriorState()")
         local ok, err = pcall(SanitasInTenebris.DryingSystem.Start)
-        if not ok then
-            Utils.Log("💥 [InteriorLogic]: DryingSystem.Start failed: " .. tostring(err))
+        if ok then
+            Utils.LogIf("indoor", "[InteriorLogic]: Started DryingSystem via HandleInteriorState")
+        else
+            Utils.Log("[InteriorLogic]: DryingSystem.Start failed: " .. tostring(err))
         end
     end
 end
+
+SanitasInTenebris.InteriorLogic = InteriorLogic

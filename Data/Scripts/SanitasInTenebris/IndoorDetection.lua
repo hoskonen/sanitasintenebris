@@ -1,4 +1,4 @@
-System.LogAlways("4$ [Sanitas] ✅ Loaded: IndoorDetection")
+Utils.LogModuleLoaded("IndoorDetection")
 
 SanitasInTenebris.IndoorDetection = SanitasInTenebris.IndoorDetection or {}
 local IndoorDetection = SanitasInTenebris.IndoorDetection

@@ -1,11 +1,11 @@
--- Load PollingManager first
-Script.ReloadScript("Scripts/SanitasInTenebris/PollingManager.lua")
+-- config values (e.g. intervals, buffs)
+Script.ReloadScript("Scripts/SanitasInTenebris/Config.lua")
 -- shared logging + helpers
 Script.ReloadScript("Scripts/SanitasInTenebris/Utils.lua")
 -- state management
 Script.ReloadScript("Scripts/SanitasInTenebris/State.lua")
--- config values (e.g. intervals, buffs)
-Script.ReloadScript("Scripts/SanitasInTenebris/Config.lua")
+-- recurring poll ownership
+Script.ReloadScript("Scripts/SanitasInTenebris/PollingManager.lua")
 -- debug tools
 Script.ReloadScript("Scripts/SanitasInTenebris/DebugTools.lua")
 -- roof detection

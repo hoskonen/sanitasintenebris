@@ -1,15 +1,19 @@
 -- BuffLogic.lua
-System.LogAlways("4$ [Sanitas] ✅ Loaded: BuffLogic")
+Utils.LogModuleLoaded("BuffLogic")
 
 BuffLogic = {}
 
 local function BLog(msg)
-    if Config and Config.debugBuffLogic == true then
-        Utils.Log(tostring(msg))
-    end
+    Utils.LogIf("buff", tostring(msg))
 end
 
-function BuffLogic.ApplyShelteredBuff(soul)
+local function DLog(msg)
+    Utils.LogIf("drying", tostring(msg))
+end
+
+function BuffLogic.ApplyShelteredBuff(soul, reason)
+    reason = reason or "Unknown"
+
     if not soul then
         Utils.Log("[BuffLogic->ApplyShelteredBuff]: Soul is nil")
         return
@@ -21,48 +25,38 @@ function BuffLogic.ApplyShelteredBuff(soul)
         return
     end
 
-    local now                 = System.GetCurrTime()
-    local delay               = (Config.shelter and Config.shelter.applyDelaySec) or 0
+    local now = System.GetCurrTime()
+    local delay = (Config.shelter and Config.shelter.applyDelaySec) or 0
 
-    -- Start (or continue) the debounce window the first tick we detect shelter.
-    -- IMPORTANT: even if buff is already active, we refresh lastSeen each tick.
     State._shelterCandidateAt = State._shelterCandidateAt or now
-    State._shelterLastSeenAt  = now
+    State._shelterLastSeenAt = now
 
-    -- If buff already active, nothing else to do (we still updated lastSeen above).
     if State.shelteredActive then
-        if Config.debugBuffLogic then
-            BLog("[BuffLogic->ApplyShelteredBuff]: Skipped — already active (debounce maintained)")
-        end
+        BLog("[BuffLogic->ApplyShelteredBuff]: Already active -> " .. tostring(reason))
         return
     end
 
-    -- Not enough continuous shelter time yet → do not apply
     if (now - State._shelterCandidateAt) < delay then
-        if Config.debugBuffLogic then
-            BLog("[BuffLogic->ApplyShelteredBuff]: Debouncing… " ..
-                string.format("%.2fs / %.2fs", now - State._shelterCandidateAt, delay))
-        end
+        Utils.ThrottledLog("buff", "shelter_debounce", 2,
+            "[BuffLogic->ApplyShelteredBuff]: Debouncing -> " .. tostring(reason) .. " " ..
+            string.format("%.2fs / %.2fs", now - State._shelterCandidateAt, delay))
         return
     end
 
-    -- Re-entrancy guard (kept from your original)
     if State._shelterApplying then
-        if Config.debugBuffLogic then BLog("[BuffLogic->ApplyShelteredBuff]: Re-entry blocked") end
+        BLog("[BuffLogic->ApplyShelteredBuff]: Re-entry blocked")
         return
     end
     State._shelterApplying = true
 
-    -- Defensive: clear any stale copies before adding
     local removed = soul:RemoveAllBuffsByGuid(guid) or 0
-    if Config.debugBuffLogic then
-        BLog("[BuffLogic->ApplyShelteredBuff]: Removed previous sheltered buff(s): " .. tostring(removed))
-    end
+    BLog("[BuffLogic->ApplyShelteredBuff]: Removed previous sheltered buff(s): " .. tostring(removed))
+    BLog("[BuffLogic->ApplyShelteredBuff]: Adding Sheltered Buff -> " .. tostring(reason))
 
     local added = soul:AddBuff(guid)
     if added then
         State.shelteredActive = true
-        Utils.Log("[BuffLogic->ApplyShelteredBuff]: Sheltered buff successfully applied (debounced)")
+        BLog("[BuffLogic->ApplyShelteredBuff]: Added Sheltered Buff -> " .. tostring(reason))
     else
         Utils.Log("[BuffLogic->ApplyShelteredBuff]: Failed to apply sheltered buff")
     end
@@ -70,7 +64,9 @@ function BuffLogic.ApplyShelteredBuff(soul)
     State._shelterApplying = false
 end
 
-function BuffLogic.RemoveShelteredBuff(player, soul)
+function BuffLogic.RemoveShelteredBuff(player, soul, reason)
+    reason = reason or "Unknown"
+
     soul = soul or (player and player.soul)
     if not soul then
         Utils.Log("[BuffLogic->RemoveShelteredBuff]: soul is nil")
@@ -83,32 +79,29 @@ function BuffLogic.RemoveShelteredBuff(player, soul)
         return
     end
 
-    local now  = System.GetCurrTime()
+    local now = System.GetCurrTime()
     local hold = (Config.shelter and Config.shelter.releaseHoldSec) or 0
     local last = State._shelterLastSeenAt or 0
 
-    -- Hold the buff briefly after leaving shelter to avoid HUD flicker
     if (now - last) < hold then
-        if Config.debugBuffLogic then
-            BLog("[BuffLogic->RemoveShelteredBuff]: Holding for " ..
-                string.format("%.2fs remaining", hold - (now - last)))
-        end
+        Utils.ThrottledLog("buff", "shelter_hold", 2,
+            "[BuffLogic->RemoveShelteredBuff]: Holding " ..
+            string.format("%.2fs remaining", hold - (now - last)))
         return
     end
 
-    -- Remove and fully reset debounce state so next shelter requires full delay again
     local removed = soul:RemoveAllBuffsByGuid(guid) or 0
-    BLog("[BuffLogic->RemoveShelteredBuff]: Buff removed? " .. tostring(removed))
+    BLog("[BuffLogic->RemoveShelteredBuff]: Removing Sheltered Buff -> " .. tostring(reason) ..
+        " success=" .. tostring(removed))
 
-    State.shelteredActive     = false
+    State.shelteredActive = false
     State._shelterCandidateAt = nil
-    State._shelterLastSeenAt  = nil
-    BLog("[BuffLogic->RemoveShelteredBuff]: Guard: State.shelteredActive set to false")
+    State._shelterLastSeenAt = nil
 end
 
 function BuffLogic.RemoveWetnessBuffs()
     if not State.isInitialized then
-        Utils.Log("[BuffLogic->RemoveWetnessBuffs]: Skipping buff removal — system not initialized")
+        BLog("[BuffLogic->RemoveWetnessBuffs]: Skipping; system not initialized")
         return
     end
 
@@ -123,13 +116,11 @@ function BuffLogic.RemoveWetnessBuffs()
     State.wetnessLevel = nil
     State.warmingActive = false
 
-    if debugEnabled then Utils.Log("[BuffLogic->RemoveWetnessBuffs]: Removed wetness-related buffs and reset state") end
+    BLog("[BuffLogic->RemoveWetnessBuffs]: Removed wetness buffs")
 end
 
 function BuffLogic.RemoveDryingBuffsOnly()
-    if debugEnabled then
-        Utils.Log("[BuffLogic->RemoveDryingBuffsOnly]: Called (likely clearing normal drying)")
-    end
+    DLog("[BuffLogic->RemoveDryingBuffsOnly]: Called")
 
     local player = Utils.GetPlayer()
     local soul = player and player.soul
@@ -150,12 +141,9 @@ function BuffLogic.RemoveDryingBuffsOnly()
     end
 
     if removed then
-        if Config.debugDrying then Utils.Log("[BuffLogic->RemoveDryingBuffsOnly]: Removed drying buff(s)") end
+        DLog("[BuffLogic->RemoveDryingBuffsOnly]: Removed drying buff(s)")
     else
-        if Config.debugDrying then
-            Utils.Log(
-                "[BuffLogic->RemoveDryingBuffsOnly]: Tried to remove drying buffs — none were active")
-        end
+        DLog("[BuffLogic->RemoveDryingBuffsOnly]: No drying buffs were active")
     end
 end
 
@@ -168,17 +156,15 @@ function BuffLogic.RemoveBuffByGuid(guid)
         return false
     end
 
-    -- Only track state for known drying buff
     local isNormalDrying = guid == Config.buffs.buff_drying_normal
 
     if isNormalDrying and not State.normalDryingActive then
-        Utils.Log("[BuffLogic->RemoveBuffByGuid]: Normal drying buff already removed — skipping")
+        DLog("[BuffLogic->RemoveBuffByGuid]: Normal drying buff already removed; skipping")
         return false
     end
 
     local result = soul:RemoveAllBuffsByGuid(guid)
-    Utils.Log("[BuffLogic->RemoveBuffByGuid]: Removed buff with GUID " ..
-        tostring(guid) .. " → success=" .. tostring(result))
+    DLog("[BuffLogic->RemoveBuffByGuid]: Removed buff " .. tostring(guid) .. " success=" .. tostring(result))
 
     if isNormalDrying and result then
         State.normalDryingActive = false
@@ -198,33 +184,20 @@ function BuffLogic.ApplyDryingBuff(type)
         State.warmingActive = true
         State.fireDryingActive = true
         State.normalDryingActive = false
-
-        if Config.debugDrying then
-            Utils.Log("[BuffLogic->ApplyDryingBuff]: Applied: buff_drying_firesource (drying)")
-        end
+        DLog("[BuffLogic->ApplyDryingBuff]: Applied fire drying")
     elseif type == "fire_signal" and Config.buffs.buff_drying_firesource then
-        -- This is the passive detection (non-drying visual)
         soul:AddBuff(Config.buffs.buff_drying_firesource)
         State.warmingType = "fire_signal"
         State.warmingActive = true
-        -- Do not toggle dryingActive states here
-
-        if Config.debugDrying then
-            Utils.Log("[BuffLogic->ApplyDryingBuff]: Applied: buff_drying_firesource (signal only)")
-        end
+        DLog("[BuffLogic->ApplyDryingBuff]: Applied fire signal")
     elseif type == "normal" and Config.buffs.buff_drying_normal then
         soul:AddBuff(Config.buffs.buff_drying_normal)
         State.warmingType = "normal"
         State.warmingActive = true
         State.normalDryingActive = true
         State.fireDryingActive = false
-
-        if Config.debugDrying then
-            Utils.Log("[BuffLogic->ApplyDryingBuff]: Applied: buff_drying_normal")
-        end
+        DLog("[BuffLogic->ApplyDryingBuff]: Applied normal drying")
     else
-        if Config.debugDrying then
-            Utils.Log("[BuffLogic->ApplyDryingBuff]: No valid drying type to apply")
-        end
+        DLog("[BuffLogic->ApplyDryingBuff]: No valid drying type to apply")
     end
 end

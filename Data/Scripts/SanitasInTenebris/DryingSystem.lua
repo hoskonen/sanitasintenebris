@@ -1,4 +1,4 @@
-System.LogAlways("4$ [Sanitas] ✅ Loaded: DryingSystem")
+Utils.LogModuleLoaded("DryingSystem")
 
 SanitasInTenebris.DryingSystem = SanitasInTenebris.DryingSystem or {}
 

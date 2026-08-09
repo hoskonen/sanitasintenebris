@@ -1,5 +1,5 @@
 -- 🌧 RainTracker.lua
-System.LogAlways("4$ [Sanitas] ✅ Loaded: RainTracker")
+Utils.LogModuleLoaded("RainTracker")
 
 RainTracker = {}
 
@@ -527,7 +527,7 @@ function RainTracker.UpdateDryingBuffs(isIndoors, nearFire, soul, fireStrength)
     if wetness > 0 then
         if strongFire then
             newType = "fire"
-        elseif indoorish then
+        elseif isIndoors then
             newType = "normal"
         end
     else

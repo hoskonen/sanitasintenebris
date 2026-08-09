@@ -1,58 +1,49 @@
 -- State.lua
-System.LogAlways("4$ [Sanitas] ✅ Loaded: State")
+Utils.LogModuleLoaded("State")
 
--- 🔒 Ensure top-level State table exists
-State                             = State or {}
+State = State or {}
 
--- ✅ Pull any existing values (e.g. after reload) for backward safety
-local raw                         = rawget(_G, "State") or {}
+local raw = rawget(_G, "State") or {}
 
--- ✅ Explicit default initialization for known fields
-raw.shelteredActive               = raw.shelteredActive or false
-raw.retryPending                  = raw.retryPending or false
-raw.pollingSuspended              = raw.pollingSuspended or false
-raw.lastIndoorStatus              = raw.lastIndoorStatus or nil
-raw.lastRainLevel                 = raw.lastRainLevel or "none"
-raw.wetnessPercent                = raw.wetnessPercent or 0 -- wetnessPercent: true % wetness, 0–100
-raw.wetnessLevel                  = raw.wetnessLevel or
-    nil                                                     -- wetnessLevel: wetness tier (0–3), derived from %; used for buff tiering only
-raw.lastRainEndTime               = raw.lastRainEndTime or 0
-raw.interiorDetected              = raw.interiorDetected or false
-raw.environmentScoreIndoors       = raw.environmentScoreIndoors or false
-raw.lastHeatPollingSuspendedState = raw.lastHeatPollingSuspendedState == true -- force boolean
-raw.buffShelteredApplied          = raw.buffShelteredApplied or false
-raw.lastRainTickLog               = raw.lastRainTickLog or 0
-raw.wasIndoors                    = raw.wasIndoors or false
-raw.warmingType                   = raw.warmingType or nil -- "normal", "fire", or nil
-raw.warmingActive                 = raw.warmingActive or false
-raw.wasDryLogged                  = raw.wasDryLogged or false
-raw.normalDryingActive            = raw.normalDryingActive or false
-raw.rainStoppedAt                 = raw.rainStoppedAt or nil
-raw.isInitialized                 = raw.isInitialized or false
-raw.lastRainValue                 = raw.lastRainValue or nil
+raw.shelteredActive = raw.shelteredActive or false
+raw.retryPending = raw.retryPending or false
+raw.pollingSuspended = raw.pollingSuspended or false
+raw.lastIndoorStatus = raw.lastIndoorStatus or nil
+raw.lastRainLevel = raw.lastRainLevel or "none"
+raw.wetnessPercent = raw.wetnessPercent or 0
+raw.wetnessLevel = raw.wetnessLevel or nil
+raw.lastRainEndTime = raw.lastRainEndTime or 0
+raw.interiorDetected = raw.interiorDetected or false
+raw.environmentScoreIndoors = raw.environmentScoreIndoors or false
+raw.lastHeatPollingSuspendedState = raw.lastHeatPollingSuspendedState == true
+raw.buffShelteredApplied = raw.buffShelteredApplied or false
+raw.lastRainTickLog = raw.lastRainTickLog or 0
+raw.wasIndoors = raw.wasIndoors or false
+raw.warmingType = raw.warmingType or nil
+raw.warmingActive = raw.warmingActive or false
+raw.wasDryLogged = raw.wasDryLogged or false
+raw.normalDryingActive = raw.normalDryingActive or false
+raw.rainStoppedAt = raw.rainStoppedAt or nil
+raw.isInitialized = raw.isInitialized or false
+raw.lastRainValue = raw.lastRainValue or nil
 
--- 🧱 Wrap state for guarded writes
-local originalState               = raw
+local originalState = raw
 
-State                             = setmetatable({}, {
+State = setmetatable({}, {
     __index = originalState,
-    __newindex = function(t, k, v)
-        if k == "shelteredActive" then
-            if Config.debugBuffLogic then -- 👈 add this
-                local stack = debug.traceback("", 2)
-                System.LogAlways("4$ [Sanitas] ⚠️ Guard: State.shelteredActive set to " .. tostring(v))
-                System.LogAlways("4$ [Sanitas] 🔍 Stack trace:\n" .. stack)
+    __newindex = function(_, k, v)
+        if k == "shelteredActive" and Utils.IsLogEnabled("buff") then
+            Utils.Log("[State]: shelteredActive = " .. tostring(v))
+            if Config.logging and Config.logging.stateTraceback == true and debug and debug.traceback then
+                Utils.Log("[State]: shelteredActive trace:\n" .. debug.traceback("", 2))
             end
+        elseif (k == "warmingType" or k == "warmingActive") and Utils.IsLogEnabled("drying") then
+            Utils.ThrottledCh("state", tostring(k), 2, "[State]: " .. tostring(k) .. " = " .. tostring(v))
         end
 
         rawset(originalState, k, v)
     end
 })
 
-if k == "warmingType" or k == "warmingActive" then
-    System.LogAlways("4$ [Sanitas] 🧠 State." .. k .. " = " .. tostring(v))
-end
-
--- 🌍 Global export
-SanitasInTenebris       = SanitasInTenebris or {}
+SanitasInTenebris = SanitasInTenebris or {}
 SanitasInTenebris.State = State

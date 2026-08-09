@@ -1,5 +1,5 @@
 -- Main.lua
-local debugEnabled = Config.mainDebug == true
+local debugEnabled = Utils.IsLogEnabled("main")
 
 State.isInitialized = false -- Delay rain logic until ready
 
@@ -14,9 +14,7 @@ end
 
 SanitasInTenebris._rt = SanitasInTenebris._rt or {}
 local function IThrot(key, intervalSec, msg)
-    local on = Config and
-        ((Config.debugIndoorPolling == true) or (Config.debugPolling == true) or (Config.indoorDebug == true))
-    if not on then return end
+    if not (Utils.IsLogEnabled("indoor") or Utils.IsLogEnabled("polling")) then return end
     -- Prefer Utils.ThrottledCh if available
     if Utils and type(Utils.ThrottledCh) == "function" then
         Utils.ThrottledCh("indoor", key, intervalSec, msg)
@@ -38,13 +36,13 @@ end
 
 function SanitasInTenebris.Poll()
     local ok, err = pcall(function()
-        if Config.debugEnabled then
+        if Utils.IsLogEnabled("main") then
             Utils.Log("[Main->Poll]: Poll() started from OnGameplayStarted")
             Utils.Log("[Main->Poll]: Starting Poll()")
         end
 
         local isIndoors = InteriorLogic.IsPlayerInInterior()
-        if Config.debugEnabled then
+        if Utils.IsLogEnabled("main") then
             if not isIndoors then
                 Utils.Log("[Main->Poll]: OUTSIDE: Outdoor polling (rain, fire, etc.) is active")
             else
@@ -63,7 +61,7 @@ function SanitasInTenebris.Poll()
 end
 
 function SanitasInTenebris.RestartAfterLoad()
-    if Config.debugMain then
+    if Utils.IsLogEnabled("main") then
         Utils.Log("[Main->RestartAfterLoad]: RestartAfterLoad() called — evaluating restart conditions")
     end
 
@@ -71,14 +69,14 @@ function SanitasInTenebris.RestartAfterLoad()
 
     local isIndoors = InteriorLogic.IsPlayerInInterior()
     if isIndoors then
-        if Config.debugMain then
+        if Utils.IsLogEnabled("main") then
             Utils.Log("[Main->RestartAfterLoad]: RestartAfterLoad skipped — player is indoors")
         end
         return
     end
 
 
-    if Config.debugMain then
+    if Utils.IsLogEnabled("main") then
         Utils.Log("[Main->RestartAfterLoad]: Player is outdoors — resuming polling systems")
     end
 
@@ -94,6 +92,12 @@ end
 
 function SanitasInTenebris.CheckRain()
     if State.pollingSuspended then
+        Utils.ThrottledLog("polling", "rain_suspended", 10,
+            "[Main->CheckRain]: Skipped; polling suspended")
+        return
+    end
+
+    if State.pollingSuspended then
         if Config.debugRainTracker then
             Utils.Log("[Main->CheckRain] CheckRain skipped — polling suspended")
         end
@@ -103,6 +107,12 @@ function SanitasInTenebris.CheckRain()
 end
 
 function SanitasInTenebris.OutdoorPoll()
+    if State.pollingSuspended then
+        Utils.ThrottledLog("polling", "outdoor_suspended", 10,
+            "[Main->OutdoorPoll]: Skipped; polling suspended")
+        return
+    end
+
     if State.pollingSuspended then
         if debugEnabled then Utils.Log("[Main->OutdoorPoll]: Skipped — polling suspended") end
         return
@@ -162,9 +172,9 @@ function SanitasInTenebris.OutdoorPoll()
         local soul = player and player.soul
         if soul then
             if roofed and not State.shelteredActive then
-                BuffLogic.ApplyShelteredBuff(soul)
+                BuffLogic.ApplyShelteredBuff(soul, "RoofedOutside")
             elseif (not roofed) and State.shelteredActive then
-                BuffLogic.RemoveShelteredBuff(player, soul)
+                BuffLogic.RemoveShelteredBuff(player, soul, "RoofedOutsideLost")
             end
         end
     end
@@ -203,7 +213,7 @@ function SanitasInTenebris.IndoorPoll()
     end
     State.lastIndoorPollSuspended = true
 
-    if Config and Config.indoorDebug == true then
+    if Utils.IsLogEnabled("indoor") then
         IThrot("indoor_tick", 5, "[Main->IndoorPoll]: IndoorPoll tick")
     end
 
@@ -223,13 +233,13 @@ function SanitasInTenebris.IndoorPoll()
     local changed = (isIndoors ~= State.wasIndoors)
 
     if changed then
-        if Config.debugIndoor then
+        if Utils.IsLogEnabled("indoor") then
             Utils.Log("[Main->IndoorPoll]: Indoor state changed: " ..
                 tostring(State.wasIndoors) .. " → " .. tostring(isIndoors))
         end
 
         if isIndoors then
-            BuffLogic.ApplyShelteredBuff(soul)
+            BuffLogic.ApplyShelteredBuff(soul, "IndoorPoll")
             -- one-time indoor init
             local ok, err = pcall(function()
                 InteriorLogic.HandleInteriorState(player, soul)
@@ -238,7 +248,7 @@ function SanitasInTenebris.IndoorPoll()
                 Utils.Log("💥 [Main->IndoorPoll]: HandleInteriorState() error: " .. tostring(err))
             end
         else
-            BuffLogic.RemoveShelteredBuff(player, soul)
+            BuffLogic.RemoveShelteredBuff(player, soul, "IndoorPollExit")
         end
 
         State.wasIndoors = isIndoors
@@ -249,7 +259,7 @@ function SanitasInTenebris.IndoorPoll()
 
     -- Guarantee Sheltered is applied while indoors even if no transition was detected
     if isIndoors and not State.shelteredActive then
-        BuffLogic.ApplyShelteredBuff(soul)
+        BuffLogic.ApplyShelteredBuff(soul, "Indoors")
     end
 
     -- Light work while indoors (optional)
@@ -289,7 +299,7 @@ function SanitasInTenebris.CheckExitInterior()
             Utils.Log("[Main->CheckExitInterior]: Player exited interior — resuming outdoor polling")
         end
 
-        if soul then BuffLogic.RemoveShelteredBuff(player, soul) end
+        if soul then BuffLogic.RemoveShelteredBuff(player, soul, "ExitInterior") end
         BuffLogic.RemoveDryingBuffsOnly()
 
         local wetness = State.wetnessPercent or 0
@@ -312,7 +322,7 @@ function SanitasInTenebris.CheckExitInterior()
 end
 
 function SanitasInTenebris.OnGameplayStarted(actionName, eventName, argTable)
-    if Config.debugEnabled then
+    if Utils.IsLogEnabled("main") then
         Utils.Log("[Main->OnGameplayStarted]: OnGameplayStarted received")
     end
 
@@ -341,7 +351,7 @@ function SanitasInTenebris.OnGameplayStarted(actionName, eventName, argTable)
 
         Script.SetTimer(5000, function()
             State.isInitialized = true
-            if Config.debugMain then
+            if Utils.IsLogEnabled("main") then
                 Utils.Log("[Main->OnGameplayStarted]: State.isInitialized = true (indoors load)")
             end
         end)
@@ -366,7 +376,7 @@ function SanitasInTenebris.OnGameplayStarted(actionName, eventName, argTable)
         -- 🕒 Delay system initialization until wetness state has had time to populate
         Script.SetTimer(5000, function()
             State.isInitialized = true
-            if Config.debugMain then
+            if Utils.IsLogEnabled("main") then
                 Utils.Log("[Main->OnGameplayStarted]: State.isInitialized = true — rain/dry logic enabled")
             end
         end)
@@ -383,7 +393,7 @@ end
 function SanitasInTenebris.CheckReEnterInterior()
     local isNowIndoors = InteriorLogic.IsPlayerInInterior()
 
-    if isNowIndoors and State.wasIndoors == false then
+    if isNowIndoors and State.wasIndoors == false and State.pollingSuspended ~= true then
         -- Transition: went from outdoors → indoors
         if debugEnabled then
             Utils.Log(
@@ -396,7 +406,7 @@ function SanitasInTenebris.CheckReEnterInterior()
         local player           = Utils.GetPlayer()
         local soul             = player and player.soul
         if soul then
-            BuffLogic.ApplyShelteredBuff(soul)
+            BuffLogic.ApplyShelteredBuff(soul, "Indoors")
         end
 
         -- Arm exit checker so we can resume cleanly when stepping back outside
@@ -404,9 +414,7 @@ function SanitasInTenebris.CheckReEnterInterior()
 
         -- Kick first indoor tick
         SanitasInTenebris.IndoorPoll()
-
-        -- Update transition state
-        State.wasIndoors = true
+        SanitasInTenebris.ScheduleIndoorPoll()
     end
 
 

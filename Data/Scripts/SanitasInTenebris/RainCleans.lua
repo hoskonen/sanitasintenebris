@@ -1,69 +1,61 @@
 -- RainCleans.lua
-System.LogAlways("4$ [Sanitas] ✅ Loaded: RainCleans")
+Utils.LogModuleLoaded("RainCleans")
+
 SanitasInTenebris.RainCleans = SanitasInTenebris.RainCleans or {}
 local RC = SanitasInTenebris.RainCleans
-
-local function RCEnabled()
-    return Config and (Config.rainCleansDebug == true or Config.debugPolling == true)
-end
-
--- local throttle so we don’t depend on Utils load order
-SanitasInTenebris._rc_rt = SanitasInTenebris._rc_rt or {}
-local function RCThrot(key, intervalSec, msg)
-    if not RCEnabled() then return end
-    if Utils and type(Utils.ThrottledCh) == "function" then
-        Utils.ThrottledCh("rain", key, intervalSec, msg)
-        return
-    end
-    local now = System.GetCurrTime()
-    local t = SanitasInTenebris._rc_rt
-    local nextAt = t[key]
-    if not nextAt or now >= nextAt then
-        System.LogAlways(tostring(msg))
-        t[key] = now + (intervalSec or 5)
-    end
-end
-
 
 local progress = 0.0
 local henryBodyCleanProgress = 0.0
 
-function SanitasInTenebris.RainCleans.Start()
-    if RCEnabled() then
-        System.LogAlways("4$ [Sanitas->Start]: RainCleans system started.")
-    end
-    Script.SetTimer(Config.rainCleans.TickInterval, SanitasInTenebris.RainCleans.Tick)
+local function RCEnabled()
+    return Utils and Utils.IsLogEnabled and Utils.IsLogEnabled("rain_cleans")
 end
 
-function SanitasInTenebris.RainCleans.Tick()
-    Script.SetTimer(Config.rainCleans.TickInterval, SanitasInTenebris.RainCleans.Tick)
+local function RCLog(msg)
+    if RCEnabled() then Utils.Log(tostring(msg)) end
+end
+
+local function RCThrot(key, intervalSec, msg)
+    if RCEnabled() then
+        Utils.ThrottledCh("rain_cleans", key, intervalSec, tostring(msg))
+    end
+end
+
+local function IsIndoors()
+    if InteriorLogic and InteriorLogic.IsPlayerInInterior then
+        local ok, value = pcall(InteriorLogic.IsPlayerInInterior)
+        return ok and value == true
+    end
+    return false
+end
+
+function RC.Start()
+    RCLog("[RainCleans->Start]: RainCleans system started")
+    Script.SetTimer(Config.rainCleans.TickInterval, RC.Tick)
+end
+
+function RC.Tick()
+    Script.SetTimer(Config.rainCleans.TickInterval, RC.Tick)
 
     local rain = EnvironmentModule.GetRainIntensity()
-    local isIndoors = SanitasInTenebris.IsIndoors
+    local isIndoors = IsIndoors()
     local rainThreshold = Config.rainCleans.RainIntensityThreshold
     local multiplier = Config.rainCleans.RainIntensityMultiplier
     local requiredProgress = Config.rainCleans.CleaningThreshold
-
-    local logPrefix = "4$ [Sanitas->Tick]:"
-    local shouldLog = Config.rainCleansDebug
+    local player = Utils.GetPlayer()
 
     if State.lastIsIndoors ~= isIndoors then
         State.lastIsIndoors = isIndoors
-        if shouldLog then
-            System.LogAlways(logPrefix .. " Indoor state changed: " .. tostring(isIndoors))
-        end
+        RCLog("[RainCleans->Tick]: Indoor state changed: " .. tostring(isIndoors))
     end
 
     if rain >= rainThreshold and not isIndoors then
-        -- 🌧️ Active rain cleaning
         local gain = rain * multiplier
         progress = progress + gain
 
-        if shouldLog then
-            RCThrot("rc_tick", 5, string.format(
-                "%s Rain Cleaning Tick — rain=%.2f → +%.2f (progress=%.2f)",
-                logPrefix, rain, gain, progress))
-        end
+        RCThrot("tick", 5, string.format(
+            "[RainCleans->Tick]: rain=%.2f gain=%.2f progress=%.2f",
+            rain, gain, progress))
 
         if progress >= requiredProgress then
             progress = 0.0
@@ -72,34 +64,26 @@ function SanitasInTenebris.RainCleans.Tick()
             local cleaningStrength = math.min(rain * 1.5, 1.0)
             if player and player.actor and type(player.actor.WashItems) == "function" then
                 player.actor:WashItems(cleaningStrength)
-                if shouldLog then
-                    System.LogAlways(string.format(
-                        "%s Full rain wash triggered with strength %.2f", logPrefix, cleaningStrength))
-                end
+                RCLog(string.format("[RainCleans->Tick]: Full wash strength %.2f", cleaningStrength))
             end
 
             Utils.CleanHenryBody(0.3)
         end
 
-        -- Reset passive log state
         State.idleRainCleansLog = false
     elseif progress > 0 then
-        -- 💦 Partial clean using leftover progress
         local partialStrength = math.min(progress * 1.5, 1.0)
 
         if player and player.actor and type(player.actor.WashItems) == "function" then
             player.actor:WashItems(partialStrength)
 
-            -- 👇 Log only when strength changes
             local rounded = math.floor(partialStrength * 100 + 0.5) / 100
-            if Config.rainCleansDebug and State.lastPartialWashStrength ~= rounded then
-                System.LogAlways(string.format(
-                    "%s Partial rain wash triggered with strength %.2f", logPrefix, rounded))
+            if RCEnabled() and State.lastPartialWashStrength ~= rounded then
+                Utils.Log(string.format("[RainCleans->Tick]: Partial wash strength %.2f", rounded))
                 State.lastPartialWashStrength = rounded
             end
         end
 
-        -- Cap body cleaning at maxAllowed
         local maxAllowed = 0.2
         local remainingClean = maxAllowed - henryBodyCleanProgress
         local bodyClean = math.min(progress * 0.3, remainingClean)
@@ -107,19 +91,13 @@ function SanitasInTenebris.RainCleans.Tick()
         if bodyClean > 0 then
             Utils.CleanHenryBody(bodyClean)
             henryBodyCleanProgress = henryBodyCleanProgress + bodyClean
-
-            if shouldLog then
-                System.LogAlways(string.format(
-                    "%s Henry body cleaned by %.2f (partial wash, total=%.2f)",
-                    logPrefix, bodyClean, henryBodyCleanProgress))
-            end
+            RCLog(string.format("[RainCleans->Tick]: Body cleaned %.2f total=%.2f", bodyClean, henryBodyCleanProgress))
         end
 
         progress = 0.0
         State.idleRainCleansLog = false
-    elseif shouldLog and not State.idleRainCleansLog then
-        -- Suppress duplicate idle logs
-        RCThrot("rc_idle", 10, logPrefix .. " Rain stopped / indoors but no progress to apply")
+    elseif RCEnabled() and not State.idleRainCleansLog then
+        RCThrot("idle", 10, "[RainCleans->Tick]: Idle; no rain cleaning progress")
         State.idleRainCleansLog = true
     end
 end
