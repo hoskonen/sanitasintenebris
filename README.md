@@ -47,8 +47,19 @@ Set `Config.logging.enabled = false` to force every profile flag off.
 Useful focused debug calls:
 
 ```lua
+sanitas.help()
+sanitas.polls()
+sanitas.shelter()
 SanitasInTenebris.DebugTools.DumpPollHealth()
 SanitasInTenebris.DebugTools.DumpShelterStatus()
+```
+
+Other convenience commands:
+
+```lua
+sanitas.ping()
+sanitas.resetWetness()
+sanitas.forceWetness(25)
 ```
 
 ## Stabilization Priorities

@@ -87,3 +87,46 @@ function SIT.DumpShelterStatus()
     Utils.Log(text)
     return text
 end
+
+sanitas = sanitas or {}
+
+local function HelpLine(command, description)
+    return "  " .. command .. " - " .. description
+end
+
+function sanitas.help()
+    local lines = {
+        "[sanitas.help]: available developer commands",
+        HelpLine("sanitas.help()", "show this command list"),
+        HelpLine("sanitas.ping()", "verify Sanitas debug commands are loaded"),
+        HelpLine("sanitas.polls()", "dump PollingManager health"),
+        HelpLine("sanitas.shelter()", "dump XGen/roof/sheltered state"),
+        HelpLine("sanitas.resetWetness()", "clear wetness and wetness/drying buffs"),
+        HelpLine("sanitas.forceWetness(value)", "set wetness percent and refresh tier buffs"),
+        HelpLine("SanitasInTenebris.DebugTools.*", "full debug namespace for advanced calls"),
+    }
+
+    local text = table.concat(lines, "\n")
+    Utils.Log(text)
+    return text
+end
+
+function sanitas.ping()
+    return SIT.Ping()
+end
+
+function sanitas.polls()
+    return SIT.DumpPollHealth()
+end
+
+function sanitas.shelter()
+    return SIT.DumpShelterStatus()
+end
+
+function sanitas.resetWetness()
+    return SIT.ResetWetness()
+end
+
+function sanitas.forceWetness(value)
+    return SIT.ForceWetness(value)
+end
