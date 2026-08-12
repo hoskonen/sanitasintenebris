@@ -74,11 +74,12 @@ function SIT.DumpShelterStatus()
     end
 
     local text = string.format(
-        "[DebugTools->DumpShelterStatus]: xgenInterior=%s roofed=%s shelteredActive=%s pollingSuspended=%s wasIndoors=%s indoorInitDone=%s roofedOutside=%s",
+        "[DebugTools->DumpShelterStatus]: xgenInterior=%s roofed=%s shelteredActive=%s pollingSuspended=%s pollMode=%s wasIndoors=%s indoorInitDone=%s roofedOutside=%s",
         tostring(xgen),
         tostring(roofed),
         tostring(State and State.shelteredActive == true),
         tostring(State and State.pollingSuspended == true),
+        tostring(PollingManager and PollingManager._mode or "unknown"),
         tostring(State and State.wasIndoors == true),
         tostring(State and State._indoorInitDone == true),
         tostring(State and State.roofedOutside == true)
@@ -130,3 +131,10 @@ end
 function sanitas.forceWetness(value)
     return SIT.ForceWetness(value)
 end
+
+_G["sanitas.help"] = sanitas.help
+_G["sanitas.ping"] = sanitas.ping
+_G["sanitas.polls"] = sanitas.polls
+_G["sanitas.shelter"] = sanitas.shelter
+_G["sanitas.resetWetness"] = sanitas.resetWetness
+_G["sanitas.forceWetness"] = sanitas.forceWetness

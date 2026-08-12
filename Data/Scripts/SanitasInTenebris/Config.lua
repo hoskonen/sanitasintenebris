@@ -11,7 +11,7 @@ Config = {
 
     logging = {
         enabled = true,
-        profile = "shelter",
+        profile = "polling",
         moduleLoads = false,
         stateTraceback = false,
         profiles = {

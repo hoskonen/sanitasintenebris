@@ -50,9 +50,11 @@ function SanitasInTenebris.Poll()
             end
         end
 
-        -- Safe polling registration
-        Utils.SafePollRegister("RainCheck", Config.pollingInterval, SanitasInTenebris.CheckRain, false)
-        Utils.SafePollRegister("OutdoorPoll", Config.outdoorHeatInterval or 2000, SanitasInTenebris.OutdoorPoll, true)
+        if isIndoors then
+            PollingManager.SetPollState("indoor")
+        else
+            PollingManager.SetPollState("outdoor")
+        end
     end)
 
     if not ok then
@@ -123,6 +125,7 @@ function SanitasInTenebris.OutdoorPoll()
     if isInterior then
         if not State._indoorInitDone then
             State.pollingSuspended = true
+            PollingManager.SetPollState("indoor")
 
             -- Arm exit detector immediately so we can resume when the player walks out
             SanitasInTenebris.ScheduleExitInterior()
@@ -315,9 +318,7 @@ function SanitasInTenebris.CheckExitInterior()
         State._indoorTimerArmed = false
         State.wasIndoors = false
 
-        -- Restart PollingManager loops cleanly
-        SanitasInTenebris.StopPoll()
-        SanitasInTenebris.Poll()
+        PollingManager.SetPollState("outdoor")
     end
 end
 
@@ -347,7 +348,7 @@ function SanitasInTenebris.OnGameplayStarted(actionName, eventName, argTable)
             Utils.Log("[Main->OnGameplayStarted]: Player is indoors at load — applying interior logic")
         end
         InteriorLogic.HandleInteriorState(player, soul)
-        SanitasInTenebris.StopPoll()
+        PollingManager.SetPollState("indoor")
 
         Script.SetTimer(5000, function()
             State.isInitialized = true
@@ -401,6 +402,7 @@ function SanitasInTenebris.CheckReEnterInterior()
         end
 
         State.pollingSuspended = true
+        PollingManager.SetPollState("indoor")
 
         -- NEW: apply Sheltered immediately (idempotent on engine side)
         local player           = Utils.GetPlayer()

@@ -17,6 +17,7 @@ PollingManager = PollingManager or {}
 PollingManager._timers = PollingManager._timers or {}
 PollingManager._polls = PollingManager._polls or {}
 PollingManager._generation = PollingManager._generation or 0
+PollingManager._mode = PollingManager._mode or "unknown"
 
 local function Now()
     if System and System.GetCurrTime then
@@ -212,7 +213,7 @@ function PollingManager.StopAll()
 end
 
 function PollingManager.GetHealth()
-    local health = {}
+    local health = { mode = PollingManager._mode }
     for name, poll in pairs(PollingManager._polls or {}) do
         health[name] = {
             active = poll.active == true,
@@ -231,7 +232,7 @@ function PollingManager.GetHealth()
 end
 
 function PollingManager.DumpHealth()
-    local lines = { "[PollingManager->DumpHealth]: poll health" }
+    local lines = { "[PollingManager->DumpHealth]: poll health mode=" .. tostring(PollingManager._mode) }
     local count = 0
 
     for name, poll in pairs(PollingManager._polls or {}) do
@@ -264,17 +265,24 @@ function PollingManager.DumpHealth()
 end
 
 function PollingManager.SetPollState(state)
-    if state == "outdoor_dry" then
+    if state == "outdoor" then
+        PollingManager._mode = "outdoor"
+        PollingManager.Stop("IndoorPoll")
+        PollingManager.Register("RainCheck", Config.pollingInterval or 1000, SanitasInTenebris.CheckRain, false)
+        PollingManager.Register("OutdoorPoll", Config.outdoorHeatInterval or 2000, SanitasInTenebris.OutdoorPoll, true)
+    elseif state == "indoor" then
+        PollingManager._mode = "indoor"
+        PollingManager.Stop("OutdoorPoll")
+        PollingManager.Stop("RainCheck")
+    elseif state == "outdoor_dry" then
+        PollingManager._mode = "outdoor_dry"
         PollingManager.Stop("RainCheck")
         PollingManager.Stop("IndoorPoll")
         PollingManager.Register("OutdoorPoll", 2000, SanitasInTenebris.OutdoorPoll)
     elseif state == "outdoor_rain" then
+        PollingManager._mode = "outdoor_rain"
         PollingManager.Register("OutdoorPoll", 2000, SanitasInTenebris.OutdoorPoll)
         PollingManager.Register("RainCheck", 1000, SanitasInTenebris.CheckRain)
-    elseif state == "indoor" then
-        PollingManager.Stop("OutdoorPoll")
-        PollingManager.Stop("RainCheck")
-        PollingManager.Register("IndoorPoll", 3000, SanitasInTenebris.IndoorPoll)
     end
 end
 

@@ -6,7 +6,7 @@ Sanitas in Tenebris is a Kingdom Come: Deliverance II Lua mod for environmental 
 
 Read `handover.md` before larger changes. It contains the full audit, runtime findings, and manual test matrix from the previous machine.
 
-This checkout currently includes the handover commit and a profile-driven logging configuration. The current logging profile is `indoor`, set in `Data/Scripts/SanitasInTenebris/Config.lua`.
+This checkout currently includes the handover commit and a profile-driven logging configuration. The current logging profile is `polling`, set in `Data/Scripts/SanitasInTenebris/Config.lua`.
 
 The first stabilization pass has started with `PollingManager` hardening:
 
@@ -15,6 +15,7 @@ The first stabilization pass has started with `PollingManager` hardening:
 - stale callbacks cannot rearm or overwrite newer timer IDs;
 - poll health metadata is tracked;
 - `PollingManager.DumpHealth()` and `SanitasInTenebris.DebugTools.DumpPollHealth()` expose a compact status dump.
+- poll mode ownership has started: `outdoor` mode owns `RainCheck`/`OutdoorPoll`, while `indoor` mode stops those outdoor pollers and leaves indoor/exit checks active.
 
 ## Logging Profiles
 
@@ -90,6 +91,8 @@ Immediate checks after polling changes:
 - launch a dry outdoor save and confirm exactly one `RainCheck` and one `OutdoorPoll`;
 - call `SanitasInTenebris.DebugTools.DumpPollHealth()` after startup;
 - enter and exit a recognized interior several times;
+- confirm `sanitas.polls()` shows `mode=indoor` indoors, with `RainCheck` and `OutdoorPoll` inactive;
+- confirm `sanitas.polls()` shows `mode=outdoor` after exit, with one active `RainCheck` and one active `OutdoorPoll`;
 - confirm stopped/replaced poll generations do not continue ticking;
 - confirm rain, roof, fire, wetness, and buff formulas behave unchanged.
 
