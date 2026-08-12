@@ -11,7 +11,7 @@ Config = {
 
     logging = {
         enabled = true,
-        profile = "polling",
+        profile = "drying",
         moduleLoads = false,
         stateTraceback = false,
         profiles = {
@@ -27,6 +27,7 @@ Config = {
                 debugFireScan = false,
                 interiorLogicDebug = false,
                 debugDrying = false,
+                debugDryingTrace = false,
                 rainCleansDebug = false,
             },
             polling = {
@@ -41,6 +42,7 @@ Config = {
                 debugFireScan = false,
                 interiorLogicDebug = false,
                 debugDrying = false,
+                debugDryingTrace = false,
                 rainCleansDebug = false,
             },
             indoor = {
@@ -55,6 +57,7 @@ Config = {
                 debugFireScan = false,
                 interiorLogicDebug = true,
                 debugDrying = false,
+                debugDryingTrace = false,
                 rainCleansDebug = false,
             },
             roof = {
@@ -69,6 +72,7 @@ Config = {
                 debugFireScan = false,
                 interiorLogicDebug = true,
                 debugDrying = false,
+                debugDryingTrace = false,
                 rainCleansDebug = false,
             },
             shelter = {
@@ -83,6 +87,7 @@ Config = {
                 debugFireScan = false,
                 interiorLogicDebug = true,
                 debugDrying = false,
+                debugDryingTrace = false,
                 rainCleansDebug = false,
             },
             fire = {
@@ -97,6 +102,7 @@ Config = {
                 debugFireScan = false,
                 interiorLogicDebug = false,
                 debugDrying = true,
+                debugDryingTrace = false,
                 rainCleansDebug = false,
             },
             fire_trace = {
@@ -111,6 +117,7 @@ Config = {
                 debugFireScan = true,
                 interiorLogicDebug = false,
                 debugDrying = false,
+                debugDryingTrace = false,
                 rainCleansDebug = false,
             },
             rain = {
@@ -125,6 +132,7 @@ Config = {
                 debugFireScan = false,
                 interiorLogicDebug = true,
                 debugDrying = false,
+                debugDryingTrace = false,
                 rainCleansDebug = false,
             },
             drying = {
@@ -139,6 +147,7 @@ Config = {
                 debugFireScan = false,
                 interiorLogicDebug = true,
                 debugDrying = true,
+                debugDryingTrace = false,
                 rainCleansDebug = false,
             },
             rain_cleans = {
@@ -153,6 +162,7 @@ Config = {
                 debugFireScan = false,
                 interiorLogicDebug = true,
                 debugDrying = false,
+                debugDryingTrace = false,
                 rainCleansDebug = true,
             },
             all_trace = {
@@ -167,6 +177,7 @@ Config = {
                 debugFireScan = true,
                 interiorLogicDebug = true,
                 debugDrying = true,
+                debugDryingTrace = true,
                 rainCleansDebug = true,
             },
         },
@@ -186,6 +197,7 @@ Config = {
     debugFireScan = false,
     interiorLogicDebug = false,
     debugDrying = false,
+    debugDryingTrace = false,
     rainCleansDebug = false,
 
     drying = {
@@ -310,6 +322,7 @@ local function ApplyLoggingProfile()
         Config.debugFireScan = false
         Config.interiorLogicDebug = false
         Config.debugDrying = false
+        Config.debugDryingTrace = false
         Config.rainCleansDebug = false
     end
 end

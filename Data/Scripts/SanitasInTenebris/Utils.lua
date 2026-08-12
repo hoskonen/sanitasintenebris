@@ -22,6 +22,7 @@ local _logFlagByCategory = {
     fire = "fireDebug",
     fire_trace = "debugFireScan",
     drying = "debugDrying",
+    drying_trace = "debugDryingTrace",
     rain_cleans = "rainCleansDebug",
 }
 

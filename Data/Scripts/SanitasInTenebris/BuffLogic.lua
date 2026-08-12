@@ -120,8 +120,6 @@ function BuffLogic.RemoveWetnessBuffs()
 end
 
 function BuffLogic.RemoveDryingBuffsOnly()
-    DLog("[BuffLogic->RemoveDryingBuffsOnly]: Called")
-
     local player = Utils.GetPlayer()
     local soul = player and player.soul
     if not soul then return end

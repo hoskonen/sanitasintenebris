@@ -57,8 +57,7 @@ function InteriorLogic.HandleInteriorState(player, soul)
     BuffLogic.ApplyShelteredBuff(soul, "Indoors")
     State.wasIndoors = true
 
-    if not State.dryingStarted and SanitasInTenebris.DryingSystem and SanitasInTenebris.DryingSystem.Start then
-        State.dryingStarted = true
+    if SanitasInTenebris.DryingSystem and SanitasInTenebris.DryingSystem.Start then
         local ok, err = pcall(SanitasInTenebris.DryingSystem.Start)
         if ok then
             Utils.LogIf("indoor", "[InteriorLogic]: Started DryingSystem via HandleInteriorState")

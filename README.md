@@ -6,7 +6,7 @@ Sanitas in Tenebris is a Kingdom Come: Deliverance II Lua mod for environmental 
 
 Read `handover.md` before larger changes. It contains the full audit, runtime findings, and manual test matrix from the previous machine.
 
-This checkout currently includes the handover commit and a profile-driven logging configuration. The current logging profile is `polling`, set in `Data/Scripts/SanitasInTenebris/Config.lua`.
+This checkout currently includes the handover commit and a profile-driven logging configuration. The current logging profile is `drying`, set in `Data/Scripts/SanitasInTenebris/Config.lua`.
 
 The first stabilization pass has started with `PollingManager` hardening:
 
@@ -16,6 +16,7 @@ The first stabilization pass has started with `PollingManager` hardening:
 - poll health metadata is tracked;
 - `PollingManager.DumpHealth()` and `SanitasInTenebris.DebugTools.DumpPollHealth()` expose a compact status dump.
 - poll mode ownership has started: `outdoor` mode owns `RainCheck`/`OutdoorPoll`, while `indoor` mode stops those outdoor pollers and leaves indoor/exit checks active.
+- drying loop ownership has started: `DryingSystem.Start()` owns one `DryingLoop` through `PollingManager`, and `DryingSystem.Tick()` no longer schedules itself.
 
 ## Logging Profiles
 
@@ -95,6 +96,18 @@ Immediate checks after polling changes:
 - confirm `sanitas.polls()` shows `mode=outdoor` after exit, with one active `RainCheck` and one active `OutdoorPoll`;
 - confirm stopped/replaced poll generations do not continue ticking;
 - confirm rain, roof, fire, wetness, and buff formulas behave unchanged.
+
+Immediate checks after drying-loop changes:
+
+- set wetness with `sanitas.forceWetness(25)`;
+- move indoors or under shelter and confirm `sanitas.drying()` shows `running=true`;
+- confirm `sanitas.polls()` shows one active `DryingLoop`;
+- wait for several ticks and confirm `tickCount` increases without duplicate `DryingLoop` registrations;
+- use `sanitas.resetWetness()` and confirm `sanitas.drying()` shows `running=false`;
+- stand outside in rain and confirm `DryingLoop` stops with a clear reason.
+
+If the in-game console reports `Unknown command` for dotted commands, use the safe aliases:
+`sanitas_help()`, `sanitas_drying()`, `sanitas_polls()`, `sanitas_resetWetness()`, and `sanitas_forceWetness(value)`.
 
 Next focused tests:
 

@@ -23,6 +23,10 @@ function SIT.ResetWetness()
     State.warmingType = nil
     State.warmingActive = false
 
+    if SanitasInTenebris.DryingSystem and SanitasInTenebris.DryingSystem.Stop then
+        SanitasInTenebris.DryingSystem.Stop("resetWetness")
+    end
+
     Utils.Log("[DebugTools->ResetWetness]: Wetness and buffs reset")
 end
 
@@ -43,9 +47,9 @@ function SIT.ForceWetness(value)
     end
 
     State.wetnessPercent = value
-    State.wetnessLevel = tier
+    State.wetnessLevel = nil
 
-    Utils.Log(string.format("[DebugTools->ForceWetness]: Wetness forced to %.2f%% (tier=%d)", value, tier))
+    Utils.Log(string.format("[DebugTools->ForceWetness]: Wetness forced to %.2f%% (targetTier=%d)", value, tier))
 
     RainTracker.RefreshWetnessBuffTier()
 end
@@ -89,6 +93,36 @@ function SIT.DumpShelterStatus()
     return text
 end
 
+function SIT.DumpDryingStatus()
+    local running = false
+    local tickCount = nil
+    local lastResult = nil
+
+    if PollingManager and PollingManager.GetHealth then
+        local health = PollingManager.GetHealth()
+        local drying = health and health.DryingLoop
+        running = drying ~= nil and drying.active == true
+        tickCount = drying and drying.tickCount
+        lastResult = drying and drying.lastResult
+    end
+
+    local text = string.format(
+        "[DebugTools->DumpDryingStatus]: running=%s wetness=%.2f warmingActive=%s warmingType=%s normalBuff=%s fireBuff=%s rainStoppedAt=%s tickCount=%s lastResult=%s",
+        tostring(running),
+        tonumber(State and State.wetnessPercent) or 0,
+        tostring(State and State.warmingActive == true),
+        tostring(State and State.warmingType),
+        tostring(State and State.normalDryingActive == true),
+        tostring(State and State.fireDryingActive == true),
+        tostring(State and State.rainStoppedAt),
+        tostring(tickCount),
+        tostring(lastResult)
+    )
+
+    Utils.Log(text)
+    return text
+end
+
 sanitas = sanitas or {}
 
 local function HelpLine(command, description)
@@ -102,8 +136,11 @@ function sanitas.help()
         HelpLine("sanitas.ping()", "verify Sanitas debug commands are loaded"),
         HelpLine("sanitas.polls()", "dump PollingManager health"),
         HelpLine("sanitas.shelter()", "dump XGen/roof/sheltered state"),
+        HelpLine("sanitas.drying()", "dump drying loop and buff state"),
         HelpLine("sanitas.resetWetness()", "clear wetness and wetness/drying buffs"),
         HelpLine("sanitas.forceWetness(value)", "set wetness percent and refresh tier buffs"),
+        HelpLine("sanitas_help()", "safe console alias for sanitas.help()"),
+        HelpLine("sanitas_drying()", "safe console alias for sanitas.drying()"),
         HelpLine("SanitasInTenebris.DebugTools.*", "full debug namespace for advanced calls"),
     }
 
@@ -124,6 +161,10 @@ function sanitas.shelter()
     return SIT.DumpShelterStatus()
 end
 
+function sanitas.drying()
+    return SIT.DumpDryingStatus()
+end
+
 function sanitas.resetWetness()
     return SIT.ResetWetness()
 end
@@ -136,5 +177,14 @@ _G["sanitas.help"] = sanitas.help
 _G["sanitas.ping"] = sanitas.ping
 _G["sanitas.polls"] = sanitas.polls
 _G["sanitas.shelter"] = sanitas.shelter
+_G["sanitas.drying"] = sanitas.drying
 _G["sanitas.resetWetness"] = sanitas.resetWetness
 _G["sanitas.forceWetness"] = sanitas.forceWetness
+
+sanitas_help = sanitas.help
+sanitas_ping = sanitas.ping
+sanitas_polls = sanitas.polls
+sanitas_shelter = sanitas.shelter
+sanitas_drying = sanitas.drying
+sanitas_resetWetness = sanitas.resetWetness
+sanitas_forceWetness = sanitas.forceWetness
