@@ -377,9 +377,9 @@ function RainTracker.TryToDryOut()
                 tostring(nearFire) .. ", strength=" .. tostring(fireStrength))
         end
 
-        -- ensure indoor-style drying UI where sheltered (also shows fire_signal when dry+near fire)
+        -- Ensure indoor-style drying UI while sheltered, including outdoor roof cover.
         if RainTracker.UpdateDryingBuffs then
-            local _okUB, _errUB = pcall(RainTracker.UpdateDryingBuffs, isIndoors, nearFire, soul, fireStrength)
+            local _okUB, _errUB = pcall(RainTracker.UpdateDryingBuffs, sheltered, nearFire, soul, fireStrength)
             if not _okUB and Config.debugDrying then
                 Utils.Log("[RainTracker->TryToDryOut]: UpdateDryingBuffs failed: " .. tostring(_errUB))
             end
@@ -490,27 +490,38 @@ function RainTracker.CheckNearbyFire()
     return nearFire, fireStrength
 end
 
-function RainTracker.UpdateDryingBuffs(isIndoors, nearFire, soul, fireStrength)
+function RainTracker.UpdateDryingBuffs(isSheltered, nearFire, soul, fireStrength)
     if not soul then return end
 
     local wetness    = tonumber(State.wetnessPercent or 0) or 0
+    local now        = System.GetCurrTime()
+    local hold       = (Config and Config.drying and Config.drying.buffHoldSeconds) or 0
+
+    if isSheltered then
+        State._lastDryingShelterSeenAt = now
+    elseif hold > 0 and State.warmingType == "normal" then
+        local lastShelter = State._lastDryingShelterSeenAt or 0
+        if (now - lastShelter) < hold then
+            isSheltered = true
+        else
+            State._lastDryingShelterSeenAt = nil
+        end
+    end
 
     -- ---- gate fire by strength ----
     local minS       = (Config and Config.fireDetection and Config.fireDetection.minStrength) or 0.6
     local fStr       = tonumber(fireStrength) or 0
     local strongFire = (nearFire == true) and (fStr >= minS)
 
-    -- ---- indoor-only sticky hold to avoid HUD flicker near stoves/ovens ----
-    local now        = System.GetCurrTime()
-    local hold       = (Config and Config.drying and Config.drying.buffHoldSeconds) or 0
+    -- ---- sheltered sticky hold to avoid HUD flicker near stoves/ovens ----
 
     if strongFire then
         State._lastFireSeenAt = now
     else
-        if isIndoors and hold > 0 then
+        if isSheltered and hold > 0 then
             local last = State._lastFireSeenAt or 0
             if (now - last) < hold then
-                strongFire = true -- brief grace indoors only
+                strongFire = true -- brief grace while sheltered
             else
                 State._lastFireSeenAt = nil
             end
@@ -543,7 +554,7 @@ function RainTracker.UpdateDryingBuffs(isIndoors, nearFire, soul, fireStrength)
     if wetness > 0 then
         if strongFire then
             newType = "fire"
-        elseif isIndoors then
+        elseif isSheltered then
             newType = "normal"
         end
     else
@@ -553,8 +564,8 @@ function RainTracker.UpdateDryingBuffs(isIndoors, nearFire, soul, fireStrength)
 
     if Config and Config.debugDryingTrace == true and _tick("ub_decide", 3) then
         Utils.Log(string.format(
-            "[UpdateDryingBuffs] indoors=%s nearFire=%s strongFire=%s fire=%.2f>=%.2f wet=%.2f%% -> %s",
-            tostring(isIndoors), tostring(nearFire), tostring(strongFire), fStr, minS, _wet(), tostring(newType)))
+            "[UpdateDryingBuffs] sheltered=%s nearFire=%s strongFire=%s fire=%.2f>=%.2f wet=%.2f%% -> %s",
+            tostring(isSheltered), tostring(nearFire), tostring(strongFire), fStr, minS, _wet(), tostring(newType)))
     end
 
     -- ---- no-op if unchanged ----

@@ -176,6 +176,10 @@ function BuffLogic.ApplyDryingBuff(type)
     local soul = player and player.soul
     if not soul then return end
 
+    if State.warmingActive and State.warmingType == type then
+        return
+    end
+
     if type == "fire" and Config.buffs.buff_drying_firesource then
         soul:AddBuff(Config.buffs.buff_drying_firesource)
         State.warmingType = "fire"

@@ -67,6 +67,19 @@ local function _tickIntervalMs()
     return (Config and Config.drying and tonumber(Config.drying.tickInterval)) or 5000
 end
 
+local function _shelterFlags(isIndoorsFallback)
+    local RT = _RT()
+    if RT and type(RT.GetShelterFlags) == "function" then
+        local ok, isIndoors, roofed, sheltered = pcall(RT.GetShelterFlags)
+        if ok then
+            return isIndoors == true, roofed == true, sheltered == true
+        end
+    end
+
+    local isIndoors = isIndoorsFallback == true
+    return isIndoors, false, isIndoors or (State and State.shelteredActive == true)
+end
+
 function SanitasInTenebris.DryingSystem.IsRunning()
     if not (PollingManager and type(PollingManager.GetHealth) == "function") then
         return false
@@ -217,8 +230,8 @@ function SanitasInTenebris.DryingSystem.Tick()
                     if okFire then
                         nearFire, fireStrength = (v1 == true), (v2 or 0)
                     end
-                    local indoorish = (not isOutside) or (State and State.shelteredActive == true)
-                    pcall(RainTracker.UpdateDryingBuffs, indoorish, nearFire, soul, fireStrength)
+                    local _, _, sheltered = _shelterFlags(not isOutside)
+                    pcall(RainTracker.UpdateDryingBuffs, sheltered, nearFire, soul, fireStrength)
                 end
                 SanitasInTenebris.DryingSystem.Stop("dry")
                 return
@@ -314,8 +327,8 @@ function SanitasInTenebris.DryingSystem.Tick()
                 local player = Utils.GetPlayer()
                 local soul   = player and player.soul
                 if soul then
-                    local indoorish = isIndoors or (State and State.shelteredActive == true)
-                    pcall(RainTracker.UpdateDryingBuffs, indoorish, nearFire, soul, fireStrength)
+                    local _, _, sheltered = _shelterFlags(isIndoors)
+                    pcall(RainTracker.UpdateDryingBuffs, sheltered, nearFire, soul, fireStrength)
                 end
             end
 
@@ -366,7 +379,7 @@ function SanitasInTenebris.DryingSystem.CalculateDryingMultiplier(isIndoors, isO
             local m = Config.dryingMultiplier or {}
             local rain = (RainTracker and RainTracker.GetRainSafe and RainTracker.GetRainSafe()) or 0
             local torchOn = (Utils.IsTorchEquipped and Utils.IsTorchEquipped()) or false
-            local sheltered = isIndoors or (State and State.shelteredActive == true)
+            local _, _, sheltered = _shelterFlags(isIndoors)
 
             -- recompute a *breakdown* that mirrors your current logic
             local base
