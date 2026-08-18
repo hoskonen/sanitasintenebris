@@ -79,7 +79,8 @@ function RainTracker.RefreshWetnessBuffTier()
         return
     end
 
-    local soul = Utils.GetPlayer().soul
+    local player = Utils.GetPlayer()
+    local soul = player and player.soul
     if not soul then return end
 
     -- Get thresholds from config
@@ -314,8 +315,11 @@ function RainTracker.CheckRain()
 
         -- Remove normal drying buff if raining and outside
         if level ~= "none" and isOutside and State.warmingActive and State.warmingType == "normal" then
-            local soul = Utils.GetPlayer().soul
-            if soul then soul:RemoveAllBuffsByGuid(Config.buffs.buff_drying_normal) end
+            local player = Utils.GetPlayer()
+            local soul = player and player.soul
+            if soul and BuffLogic and BuffLogic.RemoveDryingBuffsOnly then
+                BuffLogic.RemoveDryingBuffsOnly()
+            end
             State.warmingActive = false
             State.warmingType = nil
             if SanitasInTenebris.DryingSystem and SanitasInTenebris.DryingSystem.Stop then

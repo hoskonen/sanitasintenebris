@@ -12,11 +12,11 @@ function SIT.ResetWetness()
     local soul = player and player.soul
     if not player or not soul then return end
 
-    soul:RemoveAllBuffsByGuid(Config.buffs.buff_drying_normal)
-    soul:RemoveAllBuffsByGuid(Config.buffs.buff_drying_firesource)
-    soul:RemoveAllBuffsByGuid(Config.buffs.buff_wetness_rain_mild)
-    soul:RemoveAllBuffsByGuid(Config.buffs.buff_wetness_rain_moderate)
-    soul:RemoveAllBuffsByGuid(Config.buffs.buff_wetness_rain_severe)
+    BuffLogic.RemoveSanitasRuntimeBuffs(soul, {
+        shelter = false,
+        drying = true,
+        wetness = true,
+    })
 
     State.wetnessLevel = 0
     State.wetnessPercent = 0
@@ -32,6 +32,12 @@ end
 
 function SIT.ForceWetness(value)
     value = tonumber(value) or 0
+
+    if value <= 0 then
+        SIT.ResetWetness()
+        Utils.Log("[DebugTools->ForceWetness]: Wetness forced to 0.00%")
+        return
+    end
 
     local tier
     local thresholds = Config.wetnessThresholds
@@ -123,6 +129,15 @@ function SIT.DumpDryingStatus()
     return text
 end
 
+function SIT.ReconcileBuffState()
+    if SanitasInTenebris.ReconcileBuffState then
+        return SanitasInTenebris.ReconcileBuffState("debug")
+    end
+
+    Utils.Log("[DebugTools->ReconcileBuffState]: ReconcileBuffState unavailable")
+    return false
+end
+
 sanitas = sanitas or {}
 
 local function HelpLine(command, description)
@@ -139,8 +154,10 @@ function sanitas.help()
         HelpLine("sanitas.drying()", "dump drying loop and buff state"),
         HelpLine("sanitas.resetWetness()", "clear wetness and wetness/drying buffs"),
         HelpLine("sanitas.forceWetness(value)", "set wetness percent and refresh tier buffs"),
+        HelpLine("sanitas.reconcile()", "clear/reapply Sanitas runtime buffs from current state"),
         HelpLine("sanitas_help()", "safe console alias for sanitas.help()"),
         HelpLine("sanitas_drying()", "safe console alias for sanitas.drying()"),
+        HelpLine("sanitas_reconcile()", "safe console alias for sanitas.reconcile()"),
         HelpLine("SanitasInTenebris.DebugTools.*", "full debug namespace for advanced calls"),
     }
 
@@ -173,6 +190,10 @@ function sanitas.forceWetness(value)
     return SIT.ForceWetness(value)
 end
 
+function sanitas.reconcile()
+    return SIT.ReconcileBuffState()
+end
+
 _G["sanitas.help"] = sanitas.help
 _G["sanitas.ping"] = sanitas.ping
 _G["sanitas.polls"] = sanitas.polls
@@ -180,6 +201,7 @@ _G["sanitas.shelter"] = sanitas.shelter
 _G["sanitas.drying"] = sanitas.drying
 _G["sanitas.resetWetness"] = sanitas.resetWetness
 _G["sanitas.forceWetness"] = sanitas.forceWetness
+_G["sanitas.reconcile"] = sanitas.reconcile
 
 sanitas_help = sanitas.help
 sanitas_ping = sanitas.ping
@@ -188,3 +210,4 @@ sanitas_shelter = sanitas.shelter
 sanitas_drying = sanitas.drying
 sanitas_resetWetness = sanitas.resetWetness
 sanitas_forceWetness = sanitas.forceWetness
+sanitas_reconcile = sanitas.reconcile

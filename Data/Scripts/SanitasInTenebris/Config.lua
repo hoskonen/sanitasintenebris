@@ -17,6 +17,7 @@ Config = {
         profiles = {
             quiet = {
                 mainDebug = false,
+                debugReconcile = false,
                 debugPolling = false,
                 debugPollTicks = false,
                 debugIndoorPolling = false,
@@ -32,6 +33,7 @@ Config = {
             },
             polling = {
                 mainDebug = true,
+                debugReconcile = true,
                 debugPolling = true,
                 debugPollTicks = false,
                 debugIndoorPolling = false,
@@ -47,6 +49,7 @@ Config = {
             },
             indoor = {
                 mainDebug = true,
+                debugReconcile = true,
                 debugPolling = true,
                 debugPollTicks = false,
                 debugIndoorPolling = true,
@@ -62,6 +65,7 @@ Config = {
             },
             roof = {
                 mainDebug = false,
+                debugReconcile = false,
                 debugPolling = false,
                 debugPollTicks = false,
                 debugIndoorPolling = false,
@@ -77,6 +81,7 @@ Config = {
             },
             shelter = {
                 mainDebug = false,
+                debugReconcile = true,
                 debugPolling = false,
                 debugPollTicks = false,
                 debugIndoorPolling = true,
@@ -92,6 +97,7 @@ Config = {
             },
             fire = {
                 mainDebug = false,
+                debugReconcile = false,
                 debugPolling = false,
                 debugPollTicks = false,
                 debugIndoorPolling = false,
@@ -107,6 +113,7 @@ Config = {
             },
             fire_trace = {
                 mainDebug = false,
+                debugReconcile = false,
                 debugPolling = false,
                 debugPollTicks = false,
                 debugIndoorPolling = false,
@@ -122,6 +129,7 @@ Config = {
             },
             rain = {
                 mainDebug = false,
+                debugReconcile = true,
                 debugPolling = false,
                 debugPollTicks = false,
                 debugIndoorPolling = false,
@@ -137,6 +145,7 @@ Config = {
             },
             drying = {
                 mainDebug = false,
+                debugReconcile = true,
                 debugPolling = false,
                 debugPollTicks = false,
                 debugIndoorPolling = false,
@@ -152,6 +161,7 @@ Config = {
             },
             rain_cleans = {
                 mainDebug = false,
+                debugReconcile = false,
                 debugPolling = false,
                 debugPollTicks = false,
                 debugIndoorPolling = false,
@@ -167,6 +177,7 @@ Config = {
             },
             all_trace = {
                 mainDebug = true,
+                debugReconcile = true,
                 debugPolling = true,
                 debugPollTicks = true,
                 debugIndoorPolling = true,
@@ -187,6 +198,7 @@ Config = {
     -- Legacy debug flags are filled from Config.logging.profile below.
     enableLogOnce = true,
     mainDebug = false,
+    debugReconcile = false,
     debugPolling = false,
     debugPollTicks = false,
     debugIndoorPolling = false,
@@ -204,6 +216,22 @@ Config = {
         tickInterval = 2000,
         startDelay = 3000,
         buffHoldSeconds = 3
+    },
+    reconcile = {
+        enabled = true,
+        wetnessPolicy = "state",
+        recoverWetnessFromBuff = true,
+        recoveredWetnessPercentByTier = {
+            tier1 = 0.10,
+            tier2 = 20,
+            tier3 = 50,
+        },
+        retryDelayMs = 1000,
+        maxRetries = 5,
+    },
+    startup = {
+        retryDelayMs = 1000,
+        maxRetries = 5,
     },
     shelter = {
         applyDelaySec = 1.5,
@@ -312,6 +340,7 @@ local function ApplyLoggingProfile()
 
     if logging.enabled == false then
         Config.mainDebug = false
+        Config.debugReconcile = false
         Config.debugPolling = false
         Config.debugPollTicks = false
         Config.debugIndoorPolling = false

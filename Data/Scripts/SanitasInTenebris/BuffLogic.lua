@@ -11,6 +11,21 @@ local function DLog(msg)
     Utils.LogIf("drying", tostring(msg))
 end
 
+local function RemoveByGuid(soul, guid)
+    if not soul or not guid or guid == "" then return 0 end
+
+    local ok, removed = pcall(function()
+        return soul:RemoveAllBuffsByGuid(guid)
+    end)
+
+    if not ok then
+        Utils.Log("[BuffLogic->RemoveByGuid]: Failed for " .. tostring(guid) .. ": " .. tostring(removed))
+        return 0
+    end
+
+    return tonumber(removed) or (removed and 1) or 0
+end
+
 function BuffLogic.ApplyShelteredBuff(soul, reason)
     reason = reason or "Unknown"
 
@@ -49,7 +64,7 @@ function BuffLogic.ApplyShelteredBuff(soul, reason)
     end
     State._shelterApplying = true
 
-    local removed = soul:RemoveAllBuffsByGuid(guid) or 0
+    local removed = RemoveByGuid(soul, guid)
     BLog("[BuffLogic->ApplyShelteredBuff]: Removed previous sheltered buff(s): " .. tostring(removed))
     BLog("[BuffLogic->ApplyShelteredBuff]: Adding Sheltered Buff -> " .. tostring(reason))
 
@@ -90,7 +105,7 @@ function BuffLogic.RemoveShelteredBuff(player, soul, reason)
         return
     end
 
-    local removed = soul:RemoveAllBuffsByGuid(guid) or 0
+    local removed = RemoveByGuid(soul, guid)
     BLog("[BuffLogic->RemoveShelteredBuff]: Removing Sheltered Buff -> " .. tostring(reason) ..
         " success=" .. tostring(removed))
 
@@ -109,9 +124,9 @@ function BuffLogic.RemoveWetnessBuffs()
     local soul = player and player.soul
     if not soul then return end
 
-    soul:RemoveAllBuffsByGuid(Config.buffs.buff_wetness_rain_mild)
-    soul:RemoveAllBuffsByGuid(Config.buffs.buff_wetness_rain_moderate)
-    soul:RemoveAllBuffsByGuid(Config.buffs.buff_wetness_rain_severe)
+    RemoveByGuid(soul, Config.buffs.buff_wetness_rain_mild)
+    RemoveByGuid(soul, Config.buffs.buff_wetness_rain_moderate)
+    RemoveByGuid(soul, Config.buffs.buff_wetness_rain_severe)
 
     State.wetnessLevel = nil
     State.warmingActive = false
@@ -127,13 +142,13 @@ function BuffLogic.RemoveDryingBuffsOnly()
     local removed = false
 
     if Config.buffs.buff_drying_normal then
-        local ok = soul:RemoveAllBuffsByGuid(Config.buffs.buff_drying_normal)
+        local ok = RemoveByGuid(soul, Config.buffs.buff_drying_normal) > 0
         removed = removed or ok
         if ok then State.normalDryingActive = false end
     end
 
     if Config.buffs.buff_drying_firesource then
-        local ok = soul:RemoveAllBuffsByGuid(Config.buffs.buff_drying_firesource)
+        local ok = RemoveByGuid(soul, Config.buffs.buff_drying_firesource) > 0
         removed = removed or ok
         if ok then State.fireDryingActive = false end
     end
@@ -161,7 +176,7 @@ function BuffLogic.RemoveBuffByGuid(guid)
         return false
     end
 
-    local result = soul:RemoveAllBuffsByGuid(guid)
+    local result = RemoveByGuid(soul, guid) > 0
     DLog("[BuffLogic->RemoveBuffByGuid]: Removed buff " .. tostring(guid) .. " success=" .. tostring(result))
 
     if isNormalDrying and result then
@@ -169,6 +184,62 @@ function BuffLogic.RemoveBuffByGuid(guid)
     end
 
     return result
+end
+
+function BuffLogic.RemoveSanitasRuntimeBuffs(soul, options)
+    options = options or {}
+    local buffs = Config and Config.buffs or {}
+    if not soul then
+        Utils.Log("[BuffLogic->RemoveSanitasRuntimeBuffs]: soul is nil")
+        return 0
+    end
+
+    local total = 0
+    local removed = {
+        shelter = 0,
+        dryingNormal = 0,
+        dryingFire = 0,
+        wetnessTier1 = 0,
+        wetnessTier2 = 0,
+        wetnessTier3 = 0,
+    }
+
+    if options.shelter ~= false then
+        removed.shelter = RemoveByGuid(soul, buffs.sheltered)
+        total = total + removed.shelter
+        State.shelteredActive = false
+        State._shelterCandidateAt = nil
+        State._shelterLastSeenAt = nil
+    end
+
+    if options.drying ~= false then
+        removed.dryingNormal = RemoveByGuid(soul, buffs.buff_drying_normal)
+        removed.dryingFire = RemoveByGuid(soul, buffs.buff_drying_firesource)
+        total = total + removed.dryingNormal + removed.dryingFire
+        State.warmingActive = false
+        State.warmingType = nil
+        State.normalDryingActive = false
+        State.fireDryingActive = false
+    end
+
+    if options.wetness ~= false then
+        removed.wetnessTier1 = RemoveByGuid(soul, buffs.buff_wetness_rain_mild)
+        removed.wetnessTier2 = RemoveByGuid(soul, buffs.buff_wetness_rain_moderate)
+        removed.wetnessTier3 = RemoveByGuid(soul, buffs.buff_wetness_rain_severe)
+        total = total + removed.wetnessTier1 + removed.wetnessTier2 + removed.wetnessTier3
+        State.wetnessLevel = nil
+    end
+
+    Utils.LogIf("reconcile", string.format(
+        "[BuffLogic->RemoveSanitasRuntimeBuffs]: removed=%s shelter=%s dryingNormal=%s dryingFire=%s wet1=%s wet2=%s wet3=%s",
+        tostring(total),
+        tostring(removed.shelter),
+        tostring(removed.dryingNormal),
+        tostring(removed.dryingFire),
+        tostring(removed.wetnessTier1),
+        tostring(removed.wetnessTier2),
+        tostring(removed.wetnessTier3)))
+    return total, removed
 end
 
 function BuffLogic.ApplyDryingBuff(type)

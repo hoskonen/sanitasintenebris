@@ -31,6 +31,7 @@ Set `Config.logging.profile` to one profile before launching the game:
 - `fire_trace`: detailed fire entity scanning for fire-classification work only.
 - `rain`: rain/wetness transitions and wetness buff tiering.
 - `drying`: drying context, drying rates, and drying buff decisions.
+- startup/manual buff reconciliation breadcrumbs are included in `polling`, `indoor`, `shelter`, `rain`, `drying`, and `all_trace`.
 - `rain_cleans`: rain cleaning only.
 - `all_trace`: everything; use briefly because it will create large logs.
 
@@ -62,6 +63,7 @@ Other convenience commands:
 sanitas.ping()
 sanitas.resetWetness()
 sanitas.forceWetness(25)
+sanitas.reconcile()
 ```
 
 ## Stabilization Priorities
@@ -69,7 +71,7 @@ sanitas.forceWetness(25)
 1. Harden recurring poll ownership and prove timer counts stay stable.
 2. Split indoor/outdoor lifecycle ownership so inactive modes actually stop their pollers.
 3. Make `DryingSystem` a single-owner loop with idempotent `Start` and explicit `Stop`.
-4. Add load/save-switch reconciliation for persistent Sanitas buffs and runtime wetness state.
+4. Add load/save-switch reconciliation for Sanitas runtime buffs and wetness state.
 5. Repair RainCleans and debug/config drift after the core lifecycle is reliable.
 6. Validate roof, rain, fire, torch, drying, and wetness-tier mechanics one subsystem at a time.
 7. Add persistence and user-facing settings only after recovery behavior is proven.
@@ -106,8 +108,17 @@ Immediate checks after drying-loop changes:
 - use `sanitas.resetWetness()` and confirm `sanitas.drying()` shows `running=false`;
 - stand outside in rain and confirm `DryingLoop` stops with a clear reason.
 
+Immediate checks after buff reconciliation changes:
+
+- launch a clean outdoor save with `Config.logging.profile = "drying"` or `"rain"`;
+- confirm one `[Main->ReconcileBuffState]` line appears after startup initialization;
+- use `sanitas.forceWetness(25)`, save, reload, then confirm there is only one moderate wetness buff icon;
+- after a quit-to-desktop reload, confirm persisted wetness buffs recover at least their lower tier threshold instead of resetting to near zero;
+- use `sanitas.reconcile()` under a roof or indoors and confirm Sheltered is restored once, without duplicate drying/wetness icons;
+- use `sanitas.resetWetness()` and confirm wetness and drying icons are removed.
+
 If the in-game console reports `Unknown command` for dotted commands, use the safe aliases:
-`sanitas_help()`, `sanitas_drying()`, `sanitas_polls()`, `sanitas_resetWetness()`, and `sanitas_forceWetness(value)`.
+`sanitas_help()`, `sanitas_drying()`, `sanitas_polls()`, `sanitas_resetWetness()`, `sanitas_forceWetness(value)`, and `sanitas_reconcile()`.
 
 Next focused tests:
 

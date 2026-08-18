@@ -30,7 +30,7 @@ function IndoorDetection.Check()
             isIndoors = false,
             source = nil,
             entityName = nil,
-            debug = "❌ No player entity found"
+            debug = "No player entity found"
         }
     end
 
@@ -70,7 +70,7 @@ function IndoorDetection.Check()
         local linkedBed = bedTrigger:GetLinkedSmartObject()
         if linkedBed and linkedBed.Properties and linkedBed.Properties.bOwnedByHome then
             if IndoorDbg() then
-                Utils.Log("🛏️ Indoor bed detected: " .. tostring(linkedBed:GetName()))
+                Utils.Log("[IndoorDetection->DetectBed]: Indoor bed detected: " .. tostring(linkedBed:GetName()))
             end
             foundBed = true
             confidence = confidence + 0.7
@@ -79,7 +79,7 @@ function IndoorDetection.Check()
     else
         if IndoorDbg() then Utils.Log("[IndoorDetection->Check]: No BedTrigger found nearby.") end
     end
-    if IndoorDbg() then Utils.Log("🛏️ DetectBed result: " .. tostring(foundBed)) end
+    if IndoorDbg() then Utils.Log("[IndoorDetection->DetectBed]: result=" .. tostring(foundBed)) end
 
     local entities = System.GetEntitiesInSphere(pos, doorRadius)
     for _, entity in ipairs(entities) do

@@ -13,6 +13,7 @@ end
 
 local _logFlagByCategory = {
     main = "mainDebug",
+    reconcile = "debugReconcile",
     polling = "debugPolling",
     indoor = "debugIndoorPolling",
     interior = "interiorLogicDebug",
